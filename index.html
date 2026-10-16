@@ -251,6 +251,31 @@ body.inbattle #actBtn,body.inbattle #atkBtn{visibility:hidden}
   #menu button{padding:.4em .55em;font-size:.82em}
   .classes{grid-template-columns:1fr}
 }
+/* phones play sideways: a card asks to turn the phone while it is upright */
+#rotate{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 40%,#1e2638,#0b0e14);color:#ece7da;text-align:center}
+#rotate .rot-card{max-width:320px;display:flex;flex-direction:column;align-items:center;gap:14px}
+#rotate h2{font-size:1.5em}
+#rotate p{margin:0;color:#b8b2a2;line-height:1.5}
+.rot-phone{width:58px;height:96px;border:4px solid #f0c860;border-radius:12px;position:relative;animation:rotphone 2.4s ease-in-out infinite}
+.rot-phone::after{content:"";position:absolute;left:50%;bottom:6px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:#f0c860}
+@keyframes rotphone{0%,25%{transform:rotate(0)}55%,85%{transform:rotate(-90deg)}100%{transform:rotate(0)}}
+@media (prefers-reduced-motion:reduce){.rot-phone{animation:none;transform:rotate(-90deg)}}
+/* short landscape screens (phones turned sideways): one scrolling menu row, no hint, smaller HUD, buttons beside the hotbar */
+@media (max-height:520px){
+  #hint{display:none}
+  #menu{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;padding:0 8px calc(4px + env(safe-area-inset-bottom,0px));gap:4px;pointer-events:auto;scrollbar-width:none}
+  #menu button{flex:none;padding:.28em .6em;font-size:.76em}
+  #hud{padding-top:calc(4px + env(safe-area-inset-top,0px));gap:6px}
+  #who{padding:4px 8px;gap:6px;flex-basis:200px;max-width:300px;font-size:.82em}
+  #avatar{width:30px;height:30px;font-size:.9em}
+  #quest{font-size:.68em;padding:4px 8px;flex-basis:170px}
+  #minimap{width:84px;height:84px}
+  #toasts{top:calc(96px + env(safe-area-inset-top,0px));max-width:min(260px,calc(100% - 32px))}
+  #hotbar{left:max(8px,env(safe-area-inset-left,0px));transform:none;max-width:calc(100% - 190px)}
+  #hotbar .hb{width:50px;height:44px}
+  #jumpBtn{width:50px;height:50px}
+  #atkBtn{width:60px;height:60px;right:calc(max(16px,env(safe-area-inset-right,0px)) + 58px)}
+}
 </style>
 
 <canvas id="scene" aria-label="Dunia 3D"></canvas>
@@ -274,6 +299,7 @@ body.inbattle #actBtn,body.inbattle #atkBtn{visibility:hidden}
 <div id="hint"></div>
 <nav id="menu" class="wrap" aria-label="Menu"></nav>
 <div id="toasts" aria-live="polite"></div>
+<div id="rotate" role="dialog" aria-labelledby="rotTitle" hidden><div class="rot-card"><div class="rot-phone" aria-hidden="true"></div><h2 id="rotTitle"></h2><p id="rotText"></p><button id="rotBtn" type="button" class="primary"></button></div></div>
 <div id="fx" aria-hidden="true"></div>
 <button id="jumpBtn" type="button"></button>
 <button id="atkBtn" type="button"></button>

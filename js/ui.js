@@ -49,9 +49,30 @@
     $('menu').replaceChildren(...MENU.map(m => h('button', { type: 'button', id: 'm_' + m, onclick: () => UI.open(m) }, t('menu.' + m))));
     $('panelClose').textContent = t('close'); $('hint').textContent = t('hint');
     $('jumpBtn').textContent = t('jump'); UI.action(World.context); UI.place();
+    $('rotTitle').textContent = t('rotTitle'); $('rotText').textContent = t('rotText'); $('rotBtn').textContent = t('rotBtn'); UI.orient();
   };
   // keep the hint and jump button just above the (wrapping) menu rail
-  UI.place = () => { const mh = $('menu').offsetHeight, hb = $('hotbar'), hh = hb && hb.children.length ? hb.offsetHeight + 6 : 0; if (hb) hb.style.bottom = (mh + 6) + 'px'; $('hint').style.bottom = (mh + 6 + hh) + 'px'; $('jumpBtn').style.bottom = (mh + 36 + hh) + 'px'; $('atkBtn').style.bottom = (mh + 32 + hh) + 'px'; $('actBtn').style.bottom = (mh + 110 + hh) + 'px'; };
+  // on short landscape screens the jump and attack buttons sit beside the hotbar instead of above it
+  UI.place = () => {
+    const mh = $('menu').offsetHeight, hb = $('hotbar'), hh = hb && hb.children.length ? hb.offsetHeight + 6 : 0, low = innerHeight <= 520, up = low ? 0 : hh;
+    if (hb) hb.style.bottom = (mh + 6) + 'px'; $('hint').style.bottom = (mh + 6 + hh) + 'px';
+    $('jumpBtn').style.bottom = (mh + (low ? 10 : 36) + up) + 'px'; $('atkBtn').style.bottom = (mh + (low ? 4 : 32) + up) + 'px'; $('actBtn').style.bottom = (mh + (low ? 74 : 110) + up) + 'px';
+  };
+  // phones play sideways: while the phone is upright a card asks to turn it (and pauses the world); where the browser
+  // allows it, going fullscreen locks the screen to landscape on the first tap
+  const phone = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820;
+  let heldPause = null;
+  UI.orient = function () {
+    const show = phone && innerHeight > innerWidth;
+    if (show === !$('rotate').hidden) return;
+    $('rotate').hidden = !show;
+    if (show) { heldPause = World.paused; World.paused = true; } else if (heldPause !== null) { World.paused = heldPause; heldPause = null; }
+  };
+  const lockLandscape = () => {
+    const el = document.documentElement, lock = () => screen.orientation && screen.orientation.lock ? screen.orientation.lock('landscape') : Promise.reject();
+    (document.fullscreenElement || !el.requestFullscreen ? lock() : el.requestFullscreen({ navigationUI: 'hide' }).then(lock)).catch(() => { }); // iPhones and some frames refuse: the card stays until the phone is turned
+  };
+  if (phone) { addEventListener('resize', UI.orient); addEventListener('pointerdown', lockLandscape, { once: true }); $('rotBtn').onclick = lockLandscape; }
   // context action (board a ship, go ashore, enter the guild or castle); Enter does the same
   UI.action = c => { const b = $('actBtn'); b.hidden = !c; if (c) b.textContent = t('act.' + c.kind); };
   $('actBtn').onclick = () => World.interact();
