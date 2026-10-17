@@ -88,7 +88,8 @@ window.I18N = {
     waitAnswer: 'Menunggu jawaban {n}…', declined: '{n} menolak.', noAnswer: 'Tidak ada jawaban.', canceled: 'Undangan dibatalkan.',
     waitAllies: 'Mengajak pemain terdekat… {a} dari {b} bergabung', startNow: 'Mulai sekarang', waitLeader: 'Menunggu {n} memulai pertarungan…',
     waitTurn: 'Menunggu giliran {n}…', forfeit: '{n} meninggalkan pertarungan.', duelTitle: 'Duel PvP', coopTitle: 'Pertarungan Bersama',
-    mapTitle: 'Peta Dunia', mapOpen: 'Buka peta dunia', compass: 'UTSB', mapNote: 'Utara di atas · panah: kamu · titik biru: pemain lain di room · tengkorak: sarang bos',
+    mapTitle: 'Peta Dunia', mapOpen: 'Buka peta dunia', compass: 'UTSB', mapNote: 'Utara di atas · panah: kamu · titik biru: pemain lain di room · tengkorak: sarang bos · ⚑: tandamu',
+    mapHow: 'ketuk peta untuk menandai, ketuk tanda untuk menghapus · seret untuk menggeser · gulir, cubit atau tombol +/− untuk zoom', mapIn: 'Perbesar', mapOut: 'Perkecil', mapMe: 'Ke posisiku', mapAll: 'Seluruh peta', mapClear: 'Hapus semua tanda',
     chestOpen: 'Peti dibuka: {item}', rest: 'Mata air desa memulihkan HP dan MP.', loading: 'Memuat dunia…', webglFail: 'Browser ini tidak mendukung WebGL, jadi dunia 3D tidak bisa ditampilkan.'
   },
   en: {
@@ -179,7 +180,8 @@ window.I18N = {
     waitAnswer: 'Waiting for {n} to answer…', declined: '{n} declined.', noAnswer: 'No answer.', canceled: 'Invitation canceled.',
     waitAllies: 'Calling nearby players… {a} of {b} joined', startNow: 'Start now', waitLeader: 'Waiting for {n} to start the fight…',
     waitTurn: 'Waiting for {n}…', forfeit: '{n} left the fight.', duelTitle: 'PvP Duel', coopTitle: 'Group Battle',
-    mapTitle: 'World Map', mapOpen: 'Open the world map', compass: 'NESW', mapNote: 'North is up · arrow: you · blue dots: other room players · skulls: boss lairs',
+    mapTitle: 'World Map', mapOpen: 'Open the world map', compass: 'NESW', mapNote: 'North is up · arrow: you · blue dots: other room players · skulls: boss lairs · ⚑: your pins',
+    mapHow: 'tap the map to set a pin, tap a pin to remove it · drag to pan · scroll, pinch or +/− to zoom', mapIn: 'Zoom in', mapOut: 'Zoom out', mapMe: 'Go to me', mapAll: 'Whole map', mapClear: 'Remove all pins',
     chestOpen: 'Chest opened: {item}', rest: 'The village spring restores your HP and MP.', loading: 'Loading the world…', webglFail: 'This browser does not support WebGL, so the 3D world cannot be shown.'
   }
 };

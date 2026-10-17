@@ -11,7 +11,8 @@
     ['human', 640, 0], ['beast', 452, 452], ['demon', 0, 640], ['dragon', -452, 452], ['giant', -640, 0], ['dwarf', -452, -452], ['angel', 0, -640], ['elf', 452, -452],
     ['storm', 1000, 0], ['glass', 309, 951], ['marsh', -809, 588], ['crystal', -809, -588], ['void', 309, -951]];
 
-  let base = null, full = null;
+  let base = null, full = null, view = null; // view: the full map's centre and half-width in metres (zoom and pan)
+  const MAXMARKS = 12, marks = () => Game.S ? (Game.S.marks = Game.S.marks || []) : [];
   function bake() {
     const n = 2 * H / STEP, cv = document.createElement('canvas'); cv.width = cv.height = n;
     const c = cv.getContext('2d'), img = c.createImageData(n, n), a = img.data, V = TR.VOLCANO;
@@ -67,6 +68,7 @@
     for (const s of World.ships) { const q = at(s.mesh.position.x, s.mesh.position.z); if (!q[2]) icon(q, 4.5, '#8a5a2a', '⛵'); }
     for (const b of TR.LAIRS) { const q = at(b.x, b.z); icon(q, 7, '#2a2024', '☠'); if (isFull) label(L(ENEMIES[b.type].name), q, 13, 10); }
     for (const o of Net.positions()) { const q = at(o.x, o.z); dot(q, 4, tok('mp')); if (isFull) label(o.name, q, -11, 11); }
+    marks().forEach((m, i) => { const q = at(m.x, m.z); icon(q, isFull ? 8 : 6, '#e0603a', '⚑'); if (isFull) label(String(i + 1), q, -14, 11); }); // your own pins (the minimap keeps far ones on its rim)
     const me = World.player();
     if (me) {
       const q = at(me.position.x, me.position.z);
@@ -78,11 +80,48 @@
     if (!isFull) [[0, -1], [1, 0], [0, 1], [-1, 0]].forEach(([x, z], i) => label(t('compass')[i], [r + R * (x * cs - z * sn), r + R * (x * sn + z * cs)], 0, 10, null, i ? ink : tok('hp')));
   }
 
+  // the full map: buttons, wheel and pinch zoom; drag to pan; tap to set a pin, tap a pin to remove it
+  const MIN_SPAN = 60;
+  const redraw = () => { if (full && full.isConnected) paint(full, view.cx, view.cz, view.span, 0, true); };
+  // canvas pixels (css) -> world metres for the current view
+  const toWorld = (px, py) => { const w = full.clientWidth, k = w / 2 / view.span; return { x: view.cx + (px - w / 2) / k, z: view.cz + (py - w / 2) / k, k }; };
+  const clampView = () => { view.span = Math.min(H, Math.max(MIN_SPAN, view.span)); const m = H - view.span; view.cx = Math.max(-m, Math.min(m, view.cx)); view.cz = Math.max(-m, Math.min(m, view.cz)); };
+  function zoomAt(f, px, py) { // keep the point under the finger or cursor where it is
+    const w = full.clientWidth; if (!w) return; // not laid out yet
+    px = px == null ? w / 2 : px; py = py == null ? w / 2 : py;
+    const at = toWorld(px, py); view.span *= f; clampView();
+    const k = w / 2 / view.span; view.cx = at.x - (px - w / 2) / k; view.cz = at.z - (py - w / 2) / k; clampView(); redraw();
+  }
+  function tapAt(px, py) {
+    if (!full.clientWidth) return;
+    const at = toWorld(px, py), list = marks(), hit = list.findIndex(m => Math.hypot(m.x - at.x, m.z - at.z) * at.k < 16);
+    if (hit >= 0) list.splice(hit, 1); else { list.push({ x: Math.round(at.x), z: Math.round(at.z) }); if (list.length > MAXMARKS) list.shift(); }
+    Game.save(); redraw();
+  }
   UI.panels.map = {
     title: 'mapTitle', build() {
+      view = view || { cx: 0, cz: 0, span: H };
       full = UI.h('canvas', { class: 'worldmap', role: 'img', 'aria-label': t('mapTitle') });
-      requestAnimationFrame(() => paint(full, 0, 0, H, 0, true)); // needs to be in the page to have a size
-      return UI.h('div', {}, full, UI.h('p', { class: 'sub' }, t('mapNote')));
+      const pts = new Map(); let drag = null, pinch = 0;
+      const local = e => { const r = full.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+      full.addEventListener('pointerdown', e => { pts.set(e.pointerId, local(e)); drag = { moved: pts.size > 1 ? 99 : 0, last: local(e) }; pinch = 0; try { full.setPointerCapture(e.pointerId); } catch (err) { /* released */ } });
+      full.addEventListener('pointermove', e => {
+        if (!drag || !pts.has(e.pointerId)) return;
+        const p = local(e); pts.set(e.pointerId, p);
+        if (pts.size === 2) { const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch) zoomAt(pinch / d, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); pinch = d; return; }
+        const dx = p[0] - drag.last[0], dy = p[1] - drag.last[1], k = full.clientWidth / 2 / view.span; drag.last = p; drag.moved += Math.abs(dx) + Math.abs(dy);
+        if (drag.moved > 6) { view.cx -= dx / k; view.cz -= dy / k; clampView(); redraw(); }
+      });
+      const up = e => { const p = pts.get(e.pointerId); pts.delete(e.pointerId); pinch = 0; if (drag && !pts.size) { if (drag.moved <= 6 && p) tapAt(p[0], p[1]); drag = null; } };
+      full.addEventListener('pointerup', up); full.addEventListener('pointercancel', e => { pts.delete(e.pointerId); drag = null; });
+      full.addEventListener('wheel', e => { e.preventDefault(); const p = local(e); zoomAt(e.deltaY > 0 ? 1.2 : 1 / 1.2, p[0], p[1]); }, { passive: false });
+      const btn = (label, title, fn) => UI.h('button', { type: 'button', title, 'aria-label': title, onclick: fn }, label);
+      const me = () => { const p = World.player(); if (p) { view.cx = p.position.x; view.cz = p.position.z; view.span = Math.min(view.span, 250); clampView(); redraw(); } };
+      requestAnimationFrame(redraw); // needs to be in the page to have a size
+      return UI.h('div', {},
+        UI.h('div', { class: 'maptools' }, btn('−', t('mapOut'), () => zoomAt(1.5)), btn('+', t('mapIn'), () => zoomAt(1 / 1.5)), btn('◎', t('mapMe'), me),
+          btn(t('mapAll'), t('mapAll'), () => { view.cx = view.cz = 0; view.span = H; redraw(); }), btn('⚑✕', t('mapClear'), () => { marks().length = 0; Game.save(); redraw(); })),
+        full, UI.h('p', { class: 'sub' }, t('mapNote') + ' · ' + t('mapHow')));
     }
   };
   $('minimap').onclick = () => UI.open('map');
@@ -92,6 +131,6 @@
     const btn = $('minimap'), lab = t('mapOpen');
     if (btn.title !== lab) { btn.title = lab; btn.setAttribute('aria-label', lab); }
     if (!World.stage) paint($('miniCv'), me.position.x, me.position.z, VIEW, World.yaw(), false);
-    if (UI.current === 'map' && full && full.isConnected) paint(full, 0, 0, H, 0, true); // other players keep moving
+    if (UI.current === 'map' && full && full.isConnected) redraw(); // other players keep moving
   }, 200);
 })();

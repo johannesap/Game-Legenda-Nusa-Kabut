@@ -543,7 +543,8 @@
     let r; try { r = new T.WebGLRenderer({ canvas, antialias: true, alpha: true }); } catch (e) { return null; }
     const s = new T.Scene(), c = new T.PerspectiveCamera(35, 1, 0.1, 50), alive = { on: true };
     s.add(new T.HemisphereLight(0xffffff, 0x556655, 1)); const d = new T.DirectionalLight(0xffffff, 0.6); d.position.set(3, 5, 4); s.add(d);
-    const ground = new T.Mesh(new T.CylinderGeometry(1.4, 1.5, 0.12, 40), Models.mat(0x5a5850, { map: Terrain.tex('stone', 3, 1) })); // stone pedestal ground.position.y = -0.05; s.add(ground);
+    const ground = new T.Mesh(new T.CylinderGeometry(1.4, 1.5, 0.12, 40), Models.mat(0x5a5850, { map: Terrain.tex('stone', 3, 1) })); // stone pedestal
+    ground.position.y = -0.05; s.add(ground);
     c.position.set(0, 1.7, 5.4); c.lookAt(0, 1.2, 0);
     let hero = null, ang = 0;
     (function spin() {

@@ -52,7 +52,9 @@ h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;font-weight:700}
 /* minimap: round, turns with the camera; tap opens the full map */
 #minimap{margin-left:auto;flex:none;width:132px;height:132px;padding:0;border-radius:50%;overflow:hidden}
 #minimap canvas{display:block;width:100%;height:100%}
-.worldmap{display:block;width:100%;max-width:min(100%,68vh);aspect-ratio:1;margin:0 auto 8px;border:1px solid var(--line);border-radius:6px}
+.worldmap{display:block;width:100%;max-width:min(100%,68vh);aspect-ratio:1;margin:0 auto 8px;border:1px solid var(--line);border-radius:6px;touch-action:none;cursor:crosshair}
+.maptools{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:8px}
+.maptools button{min-width:40px;font-weight:700}
 .chip{display:inline-block;padding:1px 8px;border-radius:99px;border:1px solid var(--line);font-size:.8em;white-space:nowrap}
 .chip.ok{border-color:var(--ok);color:var(--ok)} .chip.warn{border-color:var(--gold);color:var(--gold)}
 /* menu rail */
