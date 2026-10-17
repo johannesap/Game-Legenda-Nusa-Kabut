@@ -1,4 +1,5 @@
-// Live multiplayer through the artifact's `room` capability. A host gets a room code, friends join it;
+// Live multiplayer through the artifact's `room` capability (on claude.ai) or PeerJS rooms (anywhere else, e.g. GitHub Pages).
+// A host gets a room code, friends join it;
 // everyone in the room sees the other heroes move, chat bubbles, and can fight together.
 // Everything travels in presence (latest value wins, re-sent on reconnect), so Viewers can play too:
 //   n,c,e,l,k  name, class, evolution, level, look      x,z,y,r  position, jump height, facing
@@ -27,7 +28,8 @@
 
   N.init = async function () {
     api = window.claude && claude.use ? await claude.use('room') : null;
-    if (!api && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) api = devRoom();
+    if (!api && /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && !/[?&]peer\b/.test(location.search)) api = devRoom(); // ?peer tries PeerJS locally
+    else if (!api && window.RTCPeerConnection) api = peerRoom();
     N.ok = !!api;
     if (!$('tags')) document.body.append(h('div', { id: 'tags', 'aria-hidden': 'true' }));
     World.onFrame = frame;
@@ -45,7 +47,7 @@
     if (room) await N.leave();
     room = await api.join('nk-' + code);
     N.code = code; lastHello = ''; lastPos = '';
-    unsub = room.onPeers(onPeers, () => { UI.toast(t('joinFail', { e: 'room' })); N.leave(); });
+    unsub = room.onPeers(onPeers, e => { UI.toast(e && e.type === 'host-left' ? t('hostLeft') : t('joinFail', { e: 'room' })); N.leave(); });
     hello(true); UI.rerender();
   };
   N.leave = async function () {
@@ -305,6 +307,49 @@
     if (ttl) card._t = setTimeout(closeCard, ttl);
   }
   function closeCard() { if (card) { clearTimeout(card._t); card.remove(); card = null; } }
+
+  // ---------- outside claude.ai: rooms over PeerJS (WebRTC between browsers; a public broker only introduces them) ----------
+  // ponytail: the first player to claim a room code hosts it and relays everyone's presence; when the host leaves, the
+  // room ends for the others. Fine for a few friends; a real server (e.g. Supabase) would be the upgrade.
+  const PEERJS = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
+  const loadPeerJS = () => window.Peer ? Promise.resolve() : new Promise((ok, no) => { const s = document.createElement('script'); s.src = PEERJS; s.onload = ok; s.onerror = () => no({ type: 'peerjs' }); document.head.append(s); });
+  const plain = v => v && typeof v === 'object' && !Array.isArray(v);
+  function peerRoom() {
+    return {
+      async join(name) {
+        await loadPeerJS();
+        const hostId = 'legenda-nusa-kabut-' + name, others = new Map(), conns = new Map(), errs = [];
+        let mine = {}, subs = [], peer = null, hostConn = null, isHost = false, alive = true;
+        const open = id => new Promise((ok, no) => { const p = id ? new Peer(id, { debug: 0 }) : new Peer({ debug: 0 }); const tm = setTimeout(() => { p.destroy(); no({ type: 'timeout' }); }, 12000); p.on('open', () => { clearTimeout(tm); ok(p); }); p.on('error', e => { clearTimeout(tm); p.destroy(); no(e); }); });
+        const list = () => [{ peer: peer.id, isMe: true, sameTab: true, kind: 'viewer', presence: mine }, ...[...others].map(([id, p]) => ({ peer: id, isMe: false, sameTab: false, kind: 'viewer', presence: p }))];
+        const fire = () => { const l = list(); subs.forEach(f => f({ peers: l, joined: [], left: [], updated: l })); };
+        // at most 10 sends a second each way (positions already come at that pace)
+        const soon = fn => { let tm = null; return () => { if (!tm) tm = setTimeout(() => { tm = null; fn(); }, 100); }; };
+        const share = soon(() => { const all = { [peer.id]: mine }; others.forEach((p, id) => { all[id] = p; }); conns.forEach(c => c.open && c.send({ t: 'all', all })); });
+        const sendMine = soon(() => hostConn && hostConn.open && hostConn.send({ t: 'p', p: mine }));
+        try { peer = await open(hostId); isHost = true; } // nobody holds this code yet: host it
+        catch (e) { if (e.type !== 'unavailable-id') throw e; peer = await open(null); }
+        if (isHost) peer.on('connection', c => {
+          c.on('open', () => { conns.set(c.peer, c); share(); });
+          c.on('data', d => { if (d && d.t === 'p' && plain(d.p) && JSON.stringify(d.p).length < 8000) { others.set(c.peer, d.p); share(); fire(); } });
+          c.on('close', () => { conns.delete(c.peer); others.delete(c.peer); share(); fire(); });
+        });
+        else {
+          hostConn = peer.connect(hostId, { reliable: true });
+          await new Promise((ok, no) => { const tm = setTimeout(() => no({ type: 'timeout' }), 12000); hostConn.on('open', () => { clearTimeout(tm); ok(); }); hostConn.on('error', e => { clearTimeout(tm); no(e); }); });
+          hostConn.on('data', d => { if (!d || d.t !== 'all' || !plain(d.all)) return; others.clear(); for (const id in d.all) if (id !== peer.id && plain(d.all[id])) others.set(id, d.all[id]); fire(); });
+          hostConn.on('close', () => { others.clear(); fire(); if (alive) errs.forEach(f => f({ type: 'host-left' })); });
+        }
+        return {
+          name, peers: list, connected: () => !peer.disconnected,
+          async presence(patch) { mine = { ...mine }; for (const k in patch) { if (patch[k] === null) delete mine[k]; else mine[k] = JSON.parse(JSON.stringify(patch[k])); } isHost ? share() : sendMine(); fire(); },
+          onPeers(f, onErr) { subs.push(f); if (onErr) errs.push(onErr); setTimeout(fire); return () => { subs = subs.filter(g => g !== f); }; },
+          onConnection(f) { setTimeout(() => f(true)); return () => { }; },
+          async leave() { alive = false; peer.destroy(); }
+        };
+      }
+    };
+  }
 
   // ---------- local test room: two tabs on localhost talk over BroadcastChannel ----------
   // ponytail: dev-only stand-in for the room capability so the game can be tested without claude.ai

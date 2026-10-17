@@ -118,7 +118,7 @@
       const wrap = h('div', { style: 'display:flex;flex-direction:column;gap:10px' });
       if (!Net.inRoom()) {
         const code = h('input', { type: 'text', id: 'mpCode', maxlength: '10', placeholder: t('codePh'), 'aria-label': t('codePh'), autocomplete: 'off' });
-        const go = async fn => { try { await fn(); } catch (e) { UI.toast(e && e.code === 'bad' ? t('codeBad') : t('joinFail', { e: (e && e.code) || 'error' })); } };
+        const go = async fn => { try { await fn(); } catch (e) { UI.toast(e && e.code === 'bad' ? t('codeBad') : t('joinFail', { e: (e && (e.code || e.type)) || 'error' })); } };
         wrap.append(h('p', {}, t('mpDesc')),
           h('div', { class: 'row' }, h('button', { type: 'button', class: 'primary', onclick: () => go(Net.host) }, t('host'))),
           h('form', { class: 'row', onsubmit: e => { e.preventDefault(); go(() => Net.join(code.value)); } }, h('label', { style: 'flex:1' }, code), h('button', { type: 'submit' }, t('joinRoom'))));
