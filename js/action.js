@@ -1,5 +1,5 @@
 // Real-time combat in the open world: monsters notice you, chase and strike on their own timers; you swing, shoot
-// and cast with cooldowns (click a monster or press 1, skills on 2–9, H drinks a potion). Rewards and defeat use the
+// and cast with cooldowns (click a monster or press 1, skills on Z X C V T G B Y, H drinks a potion). Rewards and defeat use the
 // same Game.monsterResult as before. The arena and live duels keep the turn-based battle screen (battle.js).
 (function () {
   const T = THREE, $ = id => document.getElementById(id), h = UI.h;
@@ -203,6 +203,7 @@
   const slot = (label, keyName, sub, fn, col) => h('button', { type: 'button', class: 'hb', style: col ? '--sk:' + col : '', onclick: fn, title: label + ' [' + keyName + ']' },
     h('kbd', {}, keyName), h('b', {}, label), sub ? h('small', {}, sub) : null, h('i', { class: 'cd' }));
   $('atkBtn').onclick = () => A.attack();
+  const KEYS = ['Z', 'X', 'C', 'V', 'T', 'G', 'B', 'Y']; // skill keys: letters beside WASD that nothing else uses
   let list = [];
   function hotbar(t0) {
     const S = Game.S, bar = $('hotbar'), atk = $('atkBtn');
@@ -211,7 +212,7 @@
     if (sig !== barKey) {
       barKey = sig;
       atk.replaceChildren(h('b', {}, t('hbAttack')), h('kbd', {}, '1'), h('i', { class: 'cd' })); atk.title = t('hbAttack') + ' [1]';
-      bar.replaceChildren(...list.map((s, i) => slot(L(s.name), String(i + 2), t('cost', { n: s.mp }), () => A.skill(s.id), '#' + new T.Color(s.col || 0x888888).getHexString())),
+      bar.replaceChildren(...list.map((s, i) => slot(L(s.name), KEYS[i], t('cost', { n: s.mp }), () => A.skill(s.id), '#' + new T.Color(s.col || 0x888888).getHexString())),
         slot(t('hbPotion'), 'H', '', () => A.potion(), '#e05a5a'));
       UI.place();
     }
@@ -223,9 +224,9 @@
     }
   }
   addEventListener('keydown', e => {
-    if (e.target.closest && e.target.closest('input,textarea,select') || World.paused || World.stage || e.repeat) return;
+    if (e.target.closest && e.target.closest('input,textarea,select') || World.paused || World.stage || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === '1') A.attack();
-    else if (e.key >= '2' && e.key <= '9') { const s = list[+e.key - 2]; if (s) A.skill(s.id); }
+    else if (KEYS.includes(e.key.toUpperCase())) { const s = list[KEYS.indexOf(e.key.toUpperCase())]; if (s) A.skill(s.id); }
     else if (e.key === 'h' || e.key === 'H') A.potion();
   });
 })();
