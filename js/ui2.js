@@ -252,7 +252,7 @@
           h('label', {}, t('accent'), h('input', { type: 'color', id: 'setAccent', value: st.accent || '#2f7d6d', onchange: e => set('accent', e.target.value) })),
           h('label', {}, t('scale') + ' (' + Math.round(st.scale * 100) + '%)', h('input', { type: 'range', id: 'setScale', min: '0.85', max: '1.3', step: '0.05', value: st.scale, onchange: e => { set('scale', +e.target.value); UI.rerender(); } }))),
         h('div', { class: 'row' },
-          h('label', {}, t('quality'), sel('setQuality', st.quality, [['high', t('qualities.high')], ['low', t('qualities.low')]], v => set('quality', v))),
+          h('label', {}, t('quality'), sel('setQuality', st.quality, [['high', t('qualities.high')], ['low', t('qualities.low')]], v => { st.qPicked = true; set('quality', v); UI.toast(t('qReload')); })),
           h('label', {}, t('reminder'), h('input', { type: 'time', id: 'setRemind', value: st.reminder, onchange: e => set('reminder', e.target.value) })),
           h('label', { style: 'flex-direction:row;align-items:center;gap:6px' }, h('input', { type: 'checkbox', id: 'setNotif', checked: st.notif !== false, onchange: e => set('notif', e.target.checked) }), t('notifOn'))),
         h('p', { class: 'sub' }, t('pushInfo')),

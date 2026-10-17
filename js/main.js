@@ -12,7 +12,7 @@
       inv: [{ id: kind + '0', n: 1 }, { id: 'armor0', n: 1 }, { id: 'potion', n: 3 }, { id: 'ether', n: 1 }], eq: { weapon: kind + '0', armor: 'armor0' },
       pos: { x: 0, z: 6 }, st: { battles: 0, wins: 0, losses: 0, kills: {}, dmg: 0, maxHit: 0, gold: 0, steps: 0, playMs: 0, chests: 0, arenaW: 0, arenaL: 0, dailyClaims: 0, chats: 0, sailed: 0 }, guild: { pts: 0, day: '', board: [], active: [] }, bossClaims: [],
       log: [], ach: {}, daily: { date: '', kill: 0, chest: 0, arena: 0, score: 0, claimed: [], opened: [] }, rating: 1000, season: '', rewards: [],
-      profile: { title: '', bio: '', color: look.cape }, settings: { lang: LANG, theme: 'auto', accent: '', scale: 1, quality: 'high', reminder: '19:00', notif: true, lastRemind: '', warned: '' },
+      profile: { title: '', bio: '', color: look.cape }, settings: { lang: LANG, theme: 'auto', accent: '', scale: 1, quality: matchMedia('(pointer: coarse)').matches ? 'low' : 'high', reminder: '19:00', notif: true, lastRemind: '', warned: '' },
       notes: [], updated: 0
     };
     const st = heroStats(S); S.hp = st.maxHp; S.mp = st.maxMp;
@@ -323,9 +323,14 @@
     const local = (hot && hot.S) || Cloud.loadLocal();
     if (local && local.settings) LANG = local.settings.lang || 'id';
     $('hint').textContent = t('loading');
-    if (!World.init($('scene'), local && local.settings && local.settings.quality)) { document.body.append(UI.h('p', { class: 'card', style: 'position:fixed;inset:40% 16px auto;padding:16px' }, t('webglFail'))); return; }
+    // touch screens run on Saver unless the player chose a quality in Settings themselves
+    // (per device: the same save opened on a computer goes back to High)
+    const st0 = local && local.settings, q = st0 && st0.qPicked ? st0.quality : matchMedia('(pointer: coarse)').matches ? 'low' : 'high', autoLow = !!st0 && q === 'low' && st0.quality !== 'low';
+    if (st0) st0.quality = q;
+    if (!World.init($('scene'), q)) { document.body.append(UI.h('p', { class: 'card', style: 'position:fixed;inset:40% 16px auto;padding:16px' }, t('webglFail'))); return; }
     UI.buildMenu();
     if (local && local.v === 1) start(local); else UI.creator(false);
+    if (autoLow) UI.toast(t('qAuto'));
     Net.init();
     Cloud.onStatus = UI.sync; UI.sync(Cloud.status);
     Cloud.onRemote = adoptRemote;

@@ -19,6 +19,7 @@
   const rnd = (a, b) => a + Math.random() * (b - a);
   // one short-lived particle on a shared geometry: drifts by vel (m/s), shrinks or grows, fades
   function particle(geo, color, pos, size, dur, vel, grow, soft) {
+    if (!Models.hq && Math.random() < 0.5) return; // Saver graphics: half the sparks
     const m = new T.Mesh(geo, soft ? glow(color, 0.8) : light(color, 0.95)); m.position.copy(pos); m.scale.setScalar(size); add3(m);
     const t0 = performance.now(); let last = t0;
     World.anims.push(now => {

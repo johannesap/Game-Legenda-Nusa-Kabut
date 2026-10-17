@@ -33,7 +33,7 @@
 
   // ---------- scene ----------
   let renderer, scene, cam, sun, hemi, terrain, player, chests = [], yaw = 0.6, pitch = 0.55, dist = 15, target = null, last = 0, snap = true, jumpH = 0, vy = 0, stuck = 0;
-  let sky = null, maxEnemies = 24, lastArea = '', areaT = 0, swimming = false, rippleT = 0, lowQ = false;
+  let sky = null, maxEnemies = 24, lastArea = '', areaT = 0, swimming = false, rippleT = 0, lowQ = false, skyK = 1;
   const ripples = [], ships = [], npcs = [];
   let sailing = null, ctxT = 0, talkEl = null, talkNpc = null, talkUntil = 0;
   W.swimming = () => swimming;
@@ -52,7 +52,9 @@
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, quality === 'low' ? 1 : 1.5));
     scene = W._scene = new T.Scene();
     cam = W._cam = new T.PerspectiveCamera(55, 1, 0.3, 700);
-    lowQ = quality === 'low'; Models.hq = !lowQ;
+    lowQ = quality === 'low'; Models.hq = !lowQ; skyK = lowQ ? 0.62 : 1;
+    if (lowQ) cam.far = 320; // Saver: things past ~300 m are not drawn (the fog hides the edge; sky objects shrink to fit)
+    prMax = pr = Math.min(devicePixelRatio || 1, lowQ ? 1 : 1.5);
     hemi = new T.HemisphereLight(0xffffff, 0x445533, 0.8); scene.add(hemi);
     sun = new T.DirectionalLight(0xfff2d8, 0.7); scene.add(sun, sun.target);
     if (!lowQ) { // soft sun shadows inside a box that follows the hero
@@ -60,7 +62,7 @@
       sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
       Object.assign(sun.shadow.camera, { left: -42, right: 42, top: 42, bottom: -42, near: 10, far: 260 }); sun.shadow.camera.updateProjectionMatrix();
     }
-    scene.background = new T.Color(0x8ec9f2); scene.fog = new T.Fog(0x8ec9f2, 90, 320);
+    scene.background = new T.Color(0x8ec9f2); scene.fog = lowQ ? new T.Fog(0x8ec9f2, 50, 240) : new T.Fog(0x8ec9f2, 90, 320);
     const built = TR.build(scene, quality); terrain = built.terrain; chests = built.chests;
     if (!lowQ) scene.traverse(o => { if (o.isMesh) { o.receiveShadow = true; o.castShadow = !o.userData.flat; } }); // ground and liquids only catch shadows
     sky = buildSky(); maxEnemies = lowQ ? 16 : 24;
@@ -73,6 +75,16 @@
   };
   // during a battle the view is shifted so the fighters sit in the upper part, above the battle panel, and left of the skill column
   const stageView = () => { if (W.stage) cam.setViewOffset(innerWidth, innerHeight, Math.min(190, innerWidth * 0.38) / 2 + 8, innerHeight * 0.24, innerWidth, innerHeight); else cam.clearViewOffset(); };
+  // adaptive resolution: every 2 s, drop the render scale if the frame rate sags under ~28 fps, raise it again above ~50
+  let pr = 1, prMax = 1, prT = 0, prN = 0;
+  function adapt(raw) {
+    if (raw <= 0 || raw > 0.25) return; // a hidden tab or a hitch, not the real pace
+    prT += raw; prN++; if (prT < 2) return;
+    const fps = prN / prT, next = Math.max(lowQ ? 0.55 : 0.75, Math.min(prMax, fps < 28 ? pr - 0.15 : fps > 50 ? pr + 0.1 : pr));
+    prT = prN = 0;
+    if (Math.abs(next - pr) > 0.01) { pr = next; renderer.setPixelRatio(pr); resize(); }
+  }
+  W.renderScale = () => pr;
   function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); stageView(); }
 
   // sun, moon and stars ride with the camera so they always sit on the sky dome
@@ -83,7 +95,7 @@
       uniforms: { top: { value: new T.Color() }, bottom: { value: new T.Color() } },
       vertexShader: 'varying float h; void main() { h = normalize(position).y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
       fragmentShader: 'uniform vec3 top; uniform vec3 bottom; varying float h; void main() { gl_FragColor = vec4(mix(bottom, top, smoothstep(-0.02, 0.6, h)), 1.0); }' }));
-    dome.renderOrder = -2; scene.add(dome);
+    dome.renderOrder = -2; dome.scale.setScalar(skyK); scene.add(dome);
     const sunM = new T.Mesh(new T.SphereGeometry(16, 20, 14), basic(0xfff4c8)), glow = new T.Mesh(new T.SphereGeometry(30, 20, 14), basic(0xffd890, 0.25));
     sunM.add(glow);
     const moon = new T.Mesh(new T.SphereGeometry(10, 18, 12), basic(0xe8eef8));
@@ -92,7 +104,7 @@
     for (let i = 0; i < n; i++) { const a = R() * P * 2, y = R() * 0.95 + 0.05, r = Math.sqrt(1 - y * y); pts[i * 3] = Math.cos(a) * r * 450; pts[i * 3 + 1] = y * 450; pts[i * 3 + 2] = Math.sin(a) * r * 450; }
     const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pts, 3));
     const stars = new T.Points(g, new T.PointsMaterial({ color: 0xffffff, size: 1.8, sizeAttenuation: false, transparent: true, fog: false, depthWrite: false }));
-    [sunM, moon, stars].forEach(o => { o.renderOrder = -1; scene.add(o); });
+    [sunM, moon, stars].forEach(o => { o.renderOrder = -1; o.scale.setScalar(skyK); scene.add(o); });
     // clouds: puffy clusters drifting with the wind, wrapped around the player; lit by the sun so they color at dusk
     const cn = lowQ ? 16 : 30, clouds = [];
     const cloudMesh = new T.InstancedMesh(new T.IcosahedronGeometry(1, 2), new T.MeshLambertMaterial({ color: 0xffffff, fog: false, transparent: true, opacity: 0.9 }), cn * 5);
@@ -163,8 +175,8 @@
     const top = s.dome.material.uniforms.top.value, bottom = s.dome.material.uniforms.bottom.value;
     bottom.copy(s.col).lerp(s.white, 0.16 * day); top.copy(s.col).lerp(s.deep, 0.5 * day).multiplyScalar(0.85);
     s.dome.position.copy(cam.position); scene.background.copy(bottom); scene.fog.color.copy(bottom);
-    s.sun.position.copy(cam.position).addScaledVector(s.dir, 400); s.sun.visible = s.dir.y > -0.15;
-    s.moon.position.copy(cam.position).addScaledVector(s.dir, -400); s.moon.lookAt(cam.position); s.moon.visible = s.dir.y < 0.15;
+    s.sun.position.copy(cam.position).addScaledVector(s.dir, 400 * skyK); s.sun.visible = s.dir.y > -0.15;
+    s.moon.position.copy(cam.position).addScaledVector(s.dir, -400 * skyK); s.moon.lookAt(cam.position); s.moon.visible = s.dir.y < 0.15;
     s.stars.position.copy(cam.position); s.stars.rotation.y = ang * 0.15; s.stars.material.opacity = Math.pow(1 - day, 2); s.stars.visible = day < 0.97;
     s.ldir.copy(s.dir).multiplyScalar(day > 0.15 ? 1 : -1); s.ldir.y *= 1.8; s.ldir.normalize(); // light stands higher than the drawn sun so shadows stay readable
     sun.position.copy(p).addScaledVector(s.ldir, 120); sun.target.position.copy(p);
@@ -259,7 +271,7 @@
   const fwd = new T.Vector3(), mv = new T.Vector3();
   function loop(now) {
     requestAnimationFrame(loop);
-    const dt = Math.min(0.05, (now - last) / 1000 || 0); last = now;
+    const raw = (now - last) / 1000 || 0, dt = Math.min(0.05, raw); last = now; adapt(raw);
     if (!player) { updateSky(now); renderer.render(scene, cam); return; }
     let moving = false;
     const p = player.position;
@@ -435,7 +447,7 @@
   }
   function spawnPeople() {
     for (const tw of TOWNS) {
-      for (let i = 0; i < (tw.city ? 16 : 3); i++) addNpc(tw, 'citizen');
+      for (let i = 0; i < (tw.city ? (lowQ ? 6 : 16) : lowQ ? 2 : 3); i++) addNpc(tw, 'citizen');
       const gates = tw.city ? [0, P] : tw.walls ? [Math.atan2(-tw.z, -tw.x)] : [], R = tw.city ? 50 : tw.r - 5;
       for (const g of gates) [-1, 1].forEach(s => addNpc(tw, 'guard', tw.x + Math.cos(g) * R - Math.sin(g) * s * 3.5, tw.z + Math.sin(g) * R + Math.cos(g) * s * 3.5, Math.atan2(Math.cos(g), Math.sin(g))));
       if (tw.city) [-3.5, 3.5].forEach(x => addNpc(tw, 'guard', tw.x + x, tw.z - 22.5, 0)); // castle door
