@@ -99,6 +99,8 @@ td.n,th.n{text-align:right}
 #create .split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
 #create .preview{border:1px solid var(--line);border-radius:8px;min-height:260px;position:relative;background:linear-gradient(var(--bg),var(--panel))}
 #create canvas{position:absolute;inset:0;width:100%;height:100%}
+.pvturn{position:absolute;bottom:10px;width:44px;height:44px;border-radius:50%;padding:0;font-size:1.3em;font-weight:700;box-shadow:0 2px 8px var(--shade);z-index:1}
+#pvLeft{left:10px}#pvRight{right:10px}
 .classes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .classes button{display:flex;flex-direction:column;gap:2px;text-align:left;padding:8px}
 .classes button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
@@ -325,7 +327,7 @@ body.touch #hint{display:none}
   <div class="sheet card" role="dialog" aria-labelledby="createTitle">
     <header><h2 id="createTitle"></h2></header>
     <div class="body"><div class="split">
-      <div class="preview"><canvas id="previewCv"></canvas></div>
+      <div class="preview"><canvas id="previewCv"></canvas><button id="pvLeft" class="pvturn" type="button">⟲</button><button id="pvRight" class="pvturn" type="button">⟳</button></div>
       <div id="createForm" style="display:flex;flex-direction:column;gap:10px;min-width:0"></div>
     </div></div>
   </div>

@@ -275,6 +275,7 @@
     $('createTitle').textContent = edit ? t('createTitle').replace(/^\S+/, LANG === 'id' ? 'Ubah' : 'Edit') : t('createTitle');
     $('create').hidden = false; World.paused = true;
     const pv = World.preview($('previewCv'));
+    [['pvLeft', -0.5, 'turnLeft'], ['pvRight', 0.5, 'turnRight']].forEach(([id, d, k]) => { $(id).onclick = () => pv && pv.turn(d); $(id).title = t(k); $(id).setAttribute('aria-label', t(k)); }); // turn the hero by hand (dragging works too)
     const redraw = () => pv && pv.set(look, cls);
     const form = $('createForm');
     const color = (k, label) => h('label', {}, label, h('input', { type: 'color', id: 'cc_' + k, value: look[k], oninput: e => { look[k] = e.target.value; redraw(); } }));

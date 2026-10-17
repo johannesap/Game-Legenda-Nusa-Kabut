@@ -546,15 +546,23 @@
     const ground = new T.Mesh(new T.CylinderGeometry(1.4, 1.5, 0.12, 40), Models.mat(0x5a5850, { map: Terrain.tex('stone', 3, 1) })); // stone pedestal
     ground.position.y = -0.05; s.add(ground);
     c.position.set(0, 1.7, 5.4); c.lookAt(0, 1.2, 0);
-    let hero = null, ang = 0;
+    let hero = null, ang = 0, hold = 0, drag = null;
+    // drag sideways to turn the hero (turn() for buttons); it starts spinning on its own again 3 s after you let go
+    canvas.style.touchAction = 'pan-y'; canvas.style.cursor = 'grab';
+    canvas.addEventListener('pointerdown', e => { drag = e.clientX; try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* released */ } });
+    canvas.addEventListener('pointermove', e => { if (drag == null) return; ang += (e.clientX - drag) * 0.012; drag = e.clientX; hold = performance.now() + 3000; });
+    const let_go = () => { drag = null; hold = performance.now() + 3000; };
+    canvas.addEventListener('pointerup', let_go); canvas.addEventListener('pointercancel', let_go);
     (function spin() {
       if (!alive.on) return; requestAnimationFrame(spin);
       const w = canvas.clientWidth, h = canvas.clientHeight;
       if (w && (canvas.width !== Math.round(w * r.getPixelRatio()))) { r.setSize(w, h, false); c.aspect = w / h; c.updateProjectionMatrix(); }
-      if (hero) hero.rotation.y = (ang += 0.01);
+      if (drag == null && performance.now() > hold) ang += 0.01;
+      if (hero) hero.rotation.y = ang;
       r.render(s, c);
     })();
     return {
+      turn(d) { ang += d; hold = performance.now() + 3000; },
       set(look, cls) { if (hero) s.remove(hero); hero = W.buildHero(look, cls); hero.rotation.y = ang; s.add(hero); },
       dispose() { alive.on = false; r.dispose(); r.forceContextLoss(); } // give the WebGL context back right away
     };
