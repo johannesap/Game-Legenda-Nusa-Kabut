@@ -91,12 +91,12 @@
       const here = Game.townHere(), wrap = h('div', { style: 'display:flex;flex-direction:column;gap:10px' }, h('p', {}, t('warpHint')));
       const biome = w => BIOMES[Terrain.biomeAt(w.town.x, w.town.z, true)] || {};
       const card = w => {
-        const tw = w.town, b = biome(w), lv = (b.spawn || []).map(k => ENEMIES[k].lvl), mine = here === tw;
+        const tw = w.town, b = biome(w), lv = (b.spawn || []).map(k => ENEMIES[k].lvl), mine = here === tw, need = Terrain.areaLevel(tw.x, tw.z), locked = need > Game.S.lvl;
         const range = lv.length ? ' · ' + t('lvl', { n: Math.min(...lv) + (b.realm ? '+' : '–' + Math.max(...lv)) }) : '';
-        return h('button', { type: 'button', class: 'slot' + (mine ? ' equipped' : ''), disabled: mine, style: 'text-align:left', onclick: () => Game.warp(w) },
-          h('b', {}, L(tw.name)), h('span', { class: 'sub' }, mine ? t('warpHere') : (b.name ? L(b.name) : '') + range));
+        return h('button', { type: 'button', class: 'slot' + (mine ? ' equipped' : ''), disabled: mine || locked, style: 'text-align:left' + (locked ? ';opacity:.55' : ''), onclick: () => Game.warp(w) },
+          h('b', {}, (locked ? '🔒 ' : '') + L(tw.name)), h('span', { class: 'sub' }, mine ? t('warpHere') : locked ? t('needLvl', { n: need }) : (b.name ? L(b.name) : '') + range));
       };
-      [[t('warpMid'), Terrain.warps.filter(w => !biome(w).realm)], [t('warpRealms'), Terrain.warps.filter(w => biome(w).realm)]]
+      [[t('warpMid'), Terrain.warps.filter(w => !biome(w).realm)], [t('warpRealms'), Terrain.warps.filter(w => biome(w).realm && !biome(w).frontier)], [t('warpFront'), Terrain.warps.filter(w => biome(w).frontier)]]
         .forEach(([title, list]) => wrap.append(h('h3', {}, title), h('div', { class: 'grid' }, list.map(card))));
       return wrap;
     }

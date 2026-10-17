@@ -5,10 +5,13 @@
 //   mountain ridges separate the outer regions (with passes), and the world edge is a mountain wall
 (function () {
   const T = THREE, P = Math.PI, hyp = Math.hypot;
-  const TR = window.Terrain = { HALF: 780, WATER: -1.6, LAVA: -0.9, springs: [], warps: [], gears: [], smoke: [] };
+  const TR = window.Terrain = { HALF: 1240, WATER: -1.6, LAVA: -0.9, springs: [], warps: [], gears: [], smoke: [], barriers: [] };
   // the realms' great castles that are not settlements: the dragon's on the realm's highest peak, the demon lord's on the
   // mountain at the back of its realm (the bosses in data.js LAIRS wait at the same points). r: the flattened plateau
-  const KEEPS = TR.KEEPS = { dragon: { x: -442, z: 442, r: 54, R: 30 }, demon: { x: 0, z: 668, r: 74, R: 42 } };
+  const KEEPS = TR.KEEPS = { dragon: { x: -442, z: 442, r: 54, R: 30 }, demon: { x: 0, z: 668, r: 74, R: 42 }, dgate: { x: 40, z: -70, r: 16, R: 5 } }; // dgate: the dungeon's gate near the village
+  // the dungeon hall, out of reach past the world's edge: inside its walls you stand on its floor
+  const DUN = TR.DUNGEON = { x: 1150, z: 1150, w: 64, d: 88, y: 140 };
+  TR.dungeonAt = (x, z) => Math.abs(x - DUN.x) < DUN.w / 2 && Math.abs(z - DUN.z) < DUN.d / 2;
   TR.keepAt = (x, z, m) => Object.values(KEEPS).some(k => hyp(x - k.x, z - k.z) < k.r + (m || 0));
   const smooth = TR.smooth = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
   const rng = TR.rng = seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -75,7 +78,7 @@
   };
   // a soft, slightly lumpy ball of leaves (smooth normals from the centre)
   const blob = r => {
-    const g = new T.IcosahedronGeometry(r, 2), p = g.attributes.position, nm = g.attributes.normal, v = new T.Vector3();
+    const g = new T.IcosahedronGeometry(r, 1), p = g.attributes.position, nm = g.attributes.normal, v = new T.Vector3();
     for (let i = 0; i < p.count; i++) { v.set(p.getX(i), p.getY(i), p.getZ(i)); const k = 1 + 0.1 * Math.sin(v.x * 5.1) * Math.sin(v.y * 4.3 + v.z * 3.7); p.setXYZ(i, v.x * k, v.y * k, v.z * k); v.normalize(); nm.setXYZ(i, v.x, v.y, v.z); }
     return g;
   };
@@ -107,6 +110,20 @@
     demon: (x, z) => 3 * Math.abs(Math.sin(x * 0.06) * Math.cos(z * 0.05)) + 2.4 * Math.sin(x * 0.11) * Math.sin(z * 0.09) - 0.4
   };
   const REALM_LIQ = { dragon: 'lava', demon: 'lava', angel: 'cloud' };
+  // ---- the frontier beyond the old world edge (r ≈ 800–1180): five lands, one per 72° slice starting east ----
+  const frontierOf = TR.frontierOf = (x, z) => FRONTIER[(Math.round(Math.atan2(z, x) / (P * 2 / 5)) + 5) % 5];
+  // ridges between neighbouring frontier lands, with low passes
+  const frontRidge = (x, z) => { const r = hyp(x, z); if (r < 810) return 0; return smooth(0.09, 0.02, angDist(Math.atan2(z, x), P * 2 / 5, P / 5)) * smooth(810, 870, r) * (0.35 + 0.65 * Math.abs(Math.sin(r * 0.015))); };
+  // the old world edge: a mountain ring between the realms and the frontier, with a pass into each land
+  const edgeW = (x, z) => { const r = hyp(x, z); if (r < 735 || r > 835) return 0; return smooth(735, 765, r) * smooth(835, 805, r) * (1 - smooth(0.11, 0.04, angDist(Math.atan2(z, x), P * 2 / 5, 0))); };
+  const FRONT_H = {
+    storm: (x, z) => 2.5 * Math.sin(x * 0.03) * Math.cos(z * 0.027) + 10 * smooth(0.72, 0.97, Math.sin(x * 0.021) * Math.cos(z * 0.019)) + 2, // plains with rock spires
+    glass: (x, z) => 2.8 * Math.sin(x * 0.04 + 2 * Math.sin(z * 0.017)) + 1.2 * Math.sin(z * 0.08) + 1.6, // dunes
+    marsh: (x, z) => 1.4 * Math.sin(x * 0.06) * Math.cos(z * 0.05) + 0.8 * Math.sin(x * 0.13 + z * 0.11) - 0.4, // low bog with pools
+    crystal: (x, z) => 5 * Math.sin(x * 0.025) * Math.sin(z * 0.03) + 2 * Math.abs(Math.sin(x * 0.07 + z * 0.06)) + 3.5, // rolling hills
+    void: (x, z) => 7 * Math.abs(Math.sin(x * 0.04) * Math.cos(z * 0.035)) + 2.5 * Math.sin(x * 0.1 + z * 0.08) - 0.2 // broken ground over void pits
+  };
+  const FRONT_LIQ = { crystal: 'ice', void: 'lava' };
 
   const sectorOf = (x, z) => { const a = Math.atan2(z, x); return a > -P / 4 && a <= P / 4 ? 'desert' : a > P / 4 && a <= 3 * P / 4 ? 'death' : a > -3 * P / 4 && a <= -P / 4 ? 'ice' : 'magma'; };
   // mountain ridges along the borders between outer regions; low passes around r ≈ 300
@@ -130,13 +147,16 @@
       h += ridgeW(x, z) * (16 + 6 * Math.sin(x * 0.05 + z * 0.04)) * smooth(500, 462, r);
     }
     const o2 = smooth(495, 560, r);
-    if (o2 > 0) h = h * (1 - o2) + (h * 0.25 + REALM_H[realmOf(x, z)](x, z)) * o2 + realmRidge(x, z) * (14 + 5 * Math.sin(x * 0.04 + z * 0.05));
+    if (o2 > 0) h = h * (1 - o2) + (h * 0.25 + REALM_H[realmOf(x, z)](x, z)) * o2 + realmRidge(x, z) * smooth(810, 780, r) * (14 + 5 * Math.sin(x * 0.04 + z * 0.05));
     const dk = hyp(x - KEEPS.dragon.x, z - KEEPS.dragon.z), dm = hyp(x - KEEPS.demon.x, z - KEEPS.demon.z);
     if (dk < 240) h += 46 * Math.pow(smooth(240, 0, dk), 1.3); // the dragon realm's great peak
     if (dm < 160) h += 26 * smooth(160, 60, dm); // the demon castle's mountain
     h += ringW(x, z) * (24 + 6 * Math.sin(x * 0.05 + z * 0.04));
     h -= 10 * smooth(1, 0.35, lakeD(x, z));
-    h += 30 * smooth(745, 800, r); // the edge of the world
+    const o3 = smooth(800, 850, r); // the frontier lands
+    if (o3 > 0) h = h * (1 - o3) + (h * 0.2 + FRONT_H[frontierOf(x, z)](x, z)) * o3 + frontRidge(x, z) * (15 + 5 * Math.sin(x * 0.03 + z * 0.04));
+    h += edgeW(x, z) * (26 + 6 * Math.sin(x * 0.05 + z * 0.04)); // the old edge of the world, now with passes
+    h += 40 * smooth(1180, 1240, r); // the edge of the world
     return h;
   };
   // settlements are flattened to the land's own height at their center (a mountain fort stays up high)
@@ -150,13 +170,13 @@
     return h;
   };
   // what fills the low ground: water, lava in the magma region, frozen water in the tundra
-  TR.liquid = (x, z) => { const r = hyp(x, z); if (r < 172) return 'water'; if (r >= 490) return REALM_LIQ[realmOf(x, z)] || 'water'; const s = sectorOf(x, z); return s === 'magma' ? 'lava' : s === 'ice' ? 'ice' : 'water'; };
+  TR.liquid = (x, z) => { const r = hyp(x, z); if (r < 172) return 'water'; if (r >= 800) return FRONT_LIQ[frontierOf(x, z)] || 'water'; if (r >= 490) return REALM_LIQ[realmOf(x, z)] || 'water'; const s = sectorOf(x, z); return s === 'magma' ? 'lava' : s === 'ice' ? 'ice' : 'water'; };
   TR.liquidY = k => k === 'lava' ? TR.LAVA : k === 'ice' || k === 'cloud' ? TR.WATER + 0.08 : TR.WATER;
   // where feet rest: on the ground or on top of the water/lava/ice surface
   // the floating castle of the angel realm (set up in TR.build): inside its deck circle you stand high above the ground
   TR.SKY = null;
   TR.skyAt = (x, z) => !!TR.SKY && hyp(x - TR.SKY.x, z - TR.SKY.z) < TR.SKY.r;
-  TR.ground = (x, z) => TR.skyAt(x, z) ? TR.SKY.y : Math.max(TR.height(x, z), TR.liquidY(TR.liquid(x, z)));
+  TR.ground = (x, z) => TR.skyAt(x, z) ? TR.SKY.y : TR.dungeonAt(x, z) ? DUN.y : Math.max(TR.height(x, z), TR.liquidY(TR.liquid(x, z)));
   TR.townAt = (x, z, margin) => TOWNS.find(tw => hyp(x - tw.x, z - tw.z) < tw.r + (margin || 0)) || null;
   TR.biomeAt = (x, z, under) => { // under: the region a settlement stands in, instead of 'town'
     if (!under && TR.townAt(x, z)) return 'town';
@@ -165,14 +185,23 @@
     const r = hyp(x, z);
     if (r < 175) return x + z < 0 ? 'forest' : 'meadow';
     if (ringW(x, z) > 0.4) return 'mountain';
+    if (edgeW(x, z) > 0.4) return 'mountain';
+    if (r >= 800) return frontRidge(x, z) > 0.5 || r > 1185 ? 'mountain' : frontierOf(x, z);
     if (r >= 500) return realmRidge(x, z) > 0.5 ? 'mountain' : realmOf(x, z);
     if (ridgeW(x, z) > 0.45 || h > 12) return 'mountain';
     return sectorOf(x, z);
   };
+  // the level an area needs: the centre is free, the inner ring Lv 10, the realms in pairs up to Lv 50, the frontier lands
+  // one by one up to Lv 100; nothing lies past the world's edge (the dungeon hall counts as open)
+  TR.areaLevel = (x, z) => {
+    if (TR.dungeonAt(x, z)) return 1;
+    const r = hyp(x, z);
+    return r < 200 ? 1 : r < 492 ? AREA_LV.inner : r < 800 ? AREA_LV[realmOf(x, z)] : r < 1215 ? AREA_LV[frontierOf(x, z)] : Infinity;
+  };
 
   const COL = Object.fromEntries(Object.entries({ meadow: 0x78a862, forest: 0x4f7f45, desert: 0xd9b77a, ice: 0xe4edf2, magma: 0x3a3030, death: 0x4b4652,
     rock: 0x8a8478, snow: 0xf2f6f8, sand: 0xcfbf8a, mud: 0x3a3a34, ember: 0x7a2e18, town: 0x86b86d, ash: 0x4a4040, grave: 0x5a5660,
-    human: 0x8fb860, farm1: 0xc8b060, farm2: 0x6a8a3a, beast: 0xc8b070, elf: 0x5fbf8a, giant: 0x5a8a4a, dwarf: 0x7a6a5a, angel: 0xeef0f4, gold: 0xe8d8a0, dragon: 0x3a2a26, demon: 0x4a1c1c, cloud: 0xf4f6fa }).map(([k, v]) => [k, new T.Color(v)]));
+    human: 0x8fb860, farm1: 0xc8b060, farm2: 0x6a8a3a, beast: 0xc8b070, elf: 0x5fbf8a, giant: 0x5a8a4a, dwarf: 0x7a6a5a, angel: 0xeef0f4, gold: 0xe8d8a0, dragon: 0x3a2a26, demon: 0x4a1c1c, cloud: 0xf4f6fa, storm: 0x6a8a5a, glass: 0xece0c4, marsh: 0x46583a, crystal: 0x8a7ab8, void: 0x2e2038 }).map(([k, v]) => [k, new T.Color(v)]));
   const TCOL = [COL.town, COL.town, COL.desert, COL.ice, COL.forest, COL.rock, COL.ash, COL.grave, COL.town,
     COL.town, COL.beast, COL.demon, COL.dragon, COL.giant, COL.dwarf, COL.angel, COL.elf], rc = new T.Color();
   function groundColor(x, z, y, c) {
@@ -184,8 +213,9 @@
       if (rl === 'angel') rc.lerp(COL.gold, 0.12 * (Math.sin(x * 0.05 + z * 0.04) + 1));
       c.lerp(rc, o2);
     }
-    const rw = Math.max(ridgeW(x, z) * smooth(500, 462, r), ringW(x, z), realmRidge(x, z)); if (rw > 0.2) c.lerp(COL.rock, Math.min(1, (rw - 0.2) * 2));
-    if (y > 13) c.lerp(o2 > 0.5 && (realmOf(x, z) === 'dragon' || realmOf(x, z) === 'demon') ? COL.ash : COL.snow, smooth(13, 17, y));
+    const o3 = smooth(800, 850, r), fl = o3 > 0 ? frontierOf(x, z) : null; if (fl) c.lerp(COL[fl], o3);
+    const rw = Math.max(ridgeW(x, z) * smooth(500, 462, r), ringW(x, z), realmRidge(x, z) * smooth(810, 780, r), edgeW(x, z), frontRidge(x, z)); if (rw > 0.2) c.lerp(COL.rock, Math.min(1, (rw - 0.2) * 2));
+    if (y > 13) c.lerp(fl === 'void' || !fl && o2 > 0.5 && (realmOf(x, z) === 'dragon' || realmOf(x, z) === 'demon') ? COL.ash : COL.snow, smooth(13, 17, y));
     for (const k of Object.values(KEEPS)) { const f = smooth(k.R + 6, k.R - 2, hyp(x - k.x, z - k.z)); if (f > 0) c.lerp(COL.ash, f * 0.85); }
     if (liq === 'lava' && y < TR.LAVA + 0.8) c.lerp(COL.ember, 0.85);
     else if (y < TR.WATER + 0.4) c.copy(liq === 'cloud' ? COL.cloud : s === 'death' && o > 0.5 && o2 < 0.5 ? COL.mud : liq === 'ice' ? COL.ice : COL.sand);
@@ -211,10 +241,10 @@
   TR.build = function (scene, quality) {
     const sky = TOWNS.find(tw => tw.sky); // the deck ends under the castle wall, so nobody walks up from the ground or off the edge
     if (sky) TR.SKY = { x: sky.x, z: sky.z, r: sky.r - 1, y: TR.height(sky.x, sky.z) + 62 }; // the wall (r - 2) blocks both sides of this edge
-    const q = quality === 'low' ? 0.45 : 1, segs = quality === 'low' ? 250 : 380;
+    const q = quality === 'low' ? 0.45 : 1, segs = quality === 'low' ? 300 : 520;
     TR.LAIRS = LAIRS.map(l => ENEMIES[l.type].water ? { ...l } : { ...l, ...dry(l.x, l.z, 20) });
     TR.TOWERS = [[185, 0], [0, 185], [-185, 0], [0, -185]].concat(REALMS.map((_, i) => [Math.cos(i * P / 4 + 0.06) * 476, Math.sin(i * P / 4 + 0.06) * 476])).map(([x, z]) => dry(x, z, 16)); // watchtowers at region entrances and realm passes
-    const geo = new T.PlaneGeometry(1640, 1640, segs, segs); geo.rotateX(-P / 2);
+    const geo = new T.PlaneGeometry(2 * TR.HALF, 2 * TR.HALF, segs, segs); geo.rotateX(-P / 2);
     const pos = geo.attributes.position, col = new Float32Array(pos.count * 3), c = new T.Color();
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i), z = pos.getZ(i), y = TR.height(x, z);
@@ -231,15 +261,17 @@
     // liquids: water everywhere, lava and ice wedges over the outer magma and tundra regions
     const flat = (g, m, y) => { g.rotateX(-P / 2); const o = new T.Mesh(g, m); o.position.y = y; o.userData.flat = true; scene.add(o); return o; };
     TR.waveTex = tex('waves', 260, 260); // water: glossy, with drifting ripples that catch the sun
-    flat(new T.PlaneGeometry(1800, 1800), new T.MeshPhongMaterial({ color: 0x2c6e9e, specular: 0xcfe4ff, shininess: 70, transparent: true, opacity: 0.82, normalMap: TR.waveTex, normalScale: new T.Vector2(0.5, 0.5) }), TR.WATER);
+    flat(new T.PlaneGeometry(2 * TR.HALF + 200, 2 * TR.HALF + 200), new T.MeshPhongMaterial({ color: 0x2c6e9e, specular: 0xcfe4ff, shininess: 70, transparent: true, opacity: 0.82, normalMap: TR.waveTex, normalScale: new T.Vector2(0.5, 0.5) }), TR.WATER);
     TR.lavaMat = new T.MeshBasicMaterial({ color: 0xff5a1a });
     flat(new T.RingGeometry(172, 490, 48, 1, 3 * P / 4, P / 2), TR.lavaMat, TR.LAVA);
     flat(new T.RingGeometry(172, 490, 48, 1, P / 4, P / 2), M().mat(0xcfe8f2, { transparent: true, opacity: 0.92 }), TR.WATER + 0.08);
     // realm wedges (ring angle θ runs opposite to the map angle): lava for dragons and demons, a cloud sea for angels
     const cloudMat = M().mat(0xf4f6fa, { transparent: true, opacity: 0.96 });
-    REALMS.forEach((rl, i) => { const lq = REALM_LIQ[rl]; if (lq) flat(new T.RingGeometry(490, 840, 24, 1, -(i * P / 4) - P / 8, P / 4), lq === 'lava' ? TR.lavaMat : cloudMat, TR.liquidY(lq)); });
+    REALMS.forEach((rl, i) => { const lq = REALM_LIQ[rl]; if (lq) flat(new T.RingGeometry(490, 800, 24, 1, -(i * P / 4) - P / 8, P / 4), lq === 'lava' ? TR.lavaMat : cloudMat, TR.liquidY(lq)); });
+    const iceMat = M().mat(0xcfe8f2, { transparent: true, opacity: 0.92 }), voidMat = new T.MeshBasicMaterial({ color: 0x7a2aef }); // the void pits glow and burn like lava
+    FRONTIER.forEach((fl, k) => { const lq = FRONT_LIQ[fl]; if (lq) flat(new T.RingGeometry(800, 1260, 30, 1, -(k * P * 2 / 5) - P / 5, P * 2 / 5), lq === 'lava' ? voidMat : iceMat, TR.liquidY(lq)); });
     const crater = flat(new T.CircleGeometry(9, 20), TR.lavaMat, TR.height(VOLCANO.x, VOLCANO.z) + 0.4); crater.position.x = VOLCANO.x; crater.position.z = VOLCANO.z;
-    scenery(scene, q); towns(scene); realmCastles(scene); docks(scene); lairMarks(scene);
+    scenery(scene, q); towns(scene); realmCastles(scene); docks(scene); lairMarks(scene); barriers(scene); dungeonGate(scene); dungeonHall(scene);
     TR.TOWERS.forEach(tw => { tower(scene, tw.x, tw.z, TR.height(tw.x, tw.z), 2.6, 14, 0x9a948a, 0x8a2a1a); flag(scene, tw.x, TR.height(tw.x, tw.z) + 19.5, tw.z); });
     return { terrain, chests: chests(scene) };
   };
@@ -252,18 +284,37 @@
     }
     return { x: x0, z: z0 };
   }
+  // instanced scenery in 200 m tiles, so tiles out of sight are skipped (TR.cull, every frame) instead of drawing the whole world
+  TR.chunks = [];
   function inst(scene, geo, material, list, place, colorOf) {
     if (!list.length) return;
-    const m = new T.InstancedMesh(geo, material, list.length), d = new T.Object3D();
-    list.forEach((it, i) => { d.rotation.set(0, 0, 0); d.scale.set(1, 1, 1); place(d, it); d.updateMatrix(); m.setMatrixAt(i, d.matrix); if (colorOf) m.setColorAt(i, colorOf(it)); });
-    scene.add(m);
+    const d = new T.Object3D(), tiles = new Map();
+    list.forEach(it => {
+      d.rotation.set(0, 0, 0); d.scale.set(1, 1, 1); place(d, it); d.updateMatrix();
+      const k = Math.floor(d.position.x / 200) + ',' + Math.floor(d.position.z / 200);
+      if (!tiles.has(k)) tiles.set(k, []); tiles.get(k).push([d.matrix.clone(), colorOf ? colorOf(it).clone() : null, d.position.clone()]);
+    });
+    for (const items of tiles.values()) {
+      const m = new T.InstancedMesh(geo, material, items.length), c = new T.Vector3();
+      items.forEach(([mx, col, pos], i) => { m.setMatrixAt(i, mx); if (col) m.setColorAt(i, col); c.add(pos); });
+      c.divideScalar(items.length); const radius = items.reduce((r, it) => Math.max(r, it[2].distanceTo(c)), 0) + 25;
+      m.frustumCulled = false; scene.add(m); TR.chunks.push({ mesh: m, center: c, radius });
+    }
   }
+  const frustum = new T.Frustum(), pm = new T.Matrix4(), sph = new T.Sphere();
+  TR.cull = (cam, focus) => { // tiles near the hero always stay (their shadows reach into view)
+    pm.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse); frustum.setFromProjectionMatrix(pm);
+    for (const t of TR.chunks) {
+      sph.center.copy(t.center); sph.radius = t.radius;
+      t.mesh.visible = Math.hypot(t.center.x - focus.x, t.center.z - focus.z) < t.radius + 60 || t.center.distanceTo(cam.position) < cam.far + t.radius && frustum.intersectsSphere(sph);
+    }
+  };
   function scenery(scene, q) {
     const R = rng(7), S = { pine: [], round: [], snowpine: [], dead: [], cactus: [], rock: [], icecrys: [], firecrys: [], grave: [],
       elftree: [], shroom: [], hay: [], windmill: [], acacia: [], tallgrass: [], totem: [], giantpine: [], boulder: [], bluecrys: [], mine: [], pillar: [], cloudpuff: [], goldorb: [], bone: [], spike: [], portal: [], tuft: [] };
-    for (let i = 0; i < 44000 * q; i++) {
-      const x = (R() - 0.5) * 1520, z = (R() - 0.5) * 1520, roll = R(), s = 0.7 + R() * 0.8, rot = R() * 6.28;
-      if (hyp(x, z) > 770) continue;
+    for (let i = 0; i < 106000 * q; i++) { // same density as before over the bigger world
+      const x = (R() - 0.5) * 2360, z = (R() - 0.5) * 2360, roll = R(), s = 0.7 + R() * 0.8, rot = R() * 6.28;
+      if (hyp(x, z) > 1175) continue;
       const b = TR.biomeAt(x, z);
       if (b === 'town' || b === 'water' || TR.townAt(x, z, 6) || TR.keepAt(x, z, 4)) continue;
       const y = TR.height(x, z);
@@ -284,6 +335,11 @@
       else if (b === 'angel') roll < 0.05 ? put('pillar') : roll < 0.09 ? put('cloudpuff') : roll < 0.11 && put('goldorb');
       else if (b === 'dragon') roll < 0.08 ? put('rock') : roll < 0.11 ? put('bone') : roll < 0.15 && put('firecrys');
       else if (b === 'demon') roll < 0.12 ? put('spike') : roll < 0.16 ? put('firecrys') : roll < 0.1625 && put('portal');
+      else if (b === 'storm') roll < 0.03 ? put('round') : roll < 0.22 ? put('tallgrass') : roll < 0.26 ? put('boulder') : roll < 0.29 && put('rock');
+      else if (b === 'glass') roll < 0.05 ? put('icecrys') : roll < 0.09 ? put('rock') : roll < 0.105 && put('cactus');
+      else if (b === 'marsh') roll < 0.12 ? put('dead') : roll < 0.2 ? put('shroom') : roll < 0.42 ? put('tallgrass') : roll < 0.47 && put('round');
+      else if (b === 'crystal') roll < 0.1 ? put('bluecrys') : roll < 0.2 ? put('elftree') : roll < 0.26 && put('icecrys');
+      else if (b === 'void') roll < 0.1 ? put('spike') : roll < 0.14 ? put('firecrys') : roll < 0.143 ? put('portal') : roll < 0.18 && put('rock');
     }
     const mat = M().mat, lam = (c, e) => mat(c, Object.assign({ flatShading: true }, e));
     const trunk = (d, t, h) => { d.position.set(t.x, t.y + h * t.s / 2, t.z); d.scale.setScalar(t.s); d.rotation.y = t.rot; };
@@ -352,7 +408,7 @@
       add(g, new T.Mesh(new T.CircleGeometry(2, 24), new T.MeshBasicMaterial({ color: 0xa02aff, transparent: true, opacity: 0.6, side: T.DoubleSide })), 0, 0, 0);
       TR.addCol(t.x, t.z, 1.6);
     }
-    const rockCol = { magma: new T.Color(0x2a2224), desert: new T.Color(0xb08a5a), ice: new T.Color(0xb8c8d0), dwarf: new T.Color(0x7a6a5a), dragon: new T.Color(0x2a2020) }, grey = new T.Color(0x8a8a84);
+    const rockCol = { storm: new T.Color(0x6a6a70), glass: new T.Color(0xd8c8a0), marsh: new T.Color(0x4a5040), crystal: new T.Color(0x9a8ac8), void: new T.Color(0x2a1a2a), magma: new T.Color(0x2a2224), desert: new T.Color(0xb08a5a), ice: new T.Color(0xb8c8d0), dwarf: new T.Color(0x7a6a5a), dragon: new T.Color(0x2a2020) }, grey = new T.Color(0x8a8a84);
     inst(scene, new T.DodecahedronGeometry(1, 1), lam(0xffffff, { map: tex('grain', 1, 1) }), S.rock, (d, t) => { d.position.set(t.x, t.y, t.z); d.scale.set(0.6 + t.s, 0.5 + t.s * 0.5, 0.6 + t.s * 0.9); d.rotation.set(t.rot, t.rot * 2, 0); }, t => rockCol[t.b] || grey);
     inst(scene, new T.OctahedronGeometry(0.9), mat(0x9fe0ff, { transparent: true, opacity: 0.85 }), S.icecrys, (d, t) => { d.position.set(t.x, t.y + t.s, t.z); d.scale.set(t.s, t.s * 2, t.s); d.rotation.y = t.rot; });
     inst(scene, new T.OctahedronGeometry(0.8), new T.MeshBasicMaterial({ color: 0xff7a2a }), S.firecrys, (d, t) => { d.position.set(t.x, t.y + t.s * 0.8, t.z); d.scale.set(t.s, t.s * 1.8, t.s); d.rotation.set(0.2, t.rot, 0.1); });
@@ -685,6 +741,50 @@
     const glow = new T.PointLight(0xff4a2a, 1.3, 70); glow.position.set(m.x, my + 8, m.z); scene.add(glow);
   }
 
+  // ---------- walls of light where an area still needs a higher level (world.js shows them only while that is true) ----------
+  TR.barrierMat = new T.ShaderMaterial({ transparent: true, depthWrite: false, side: T.DoubleSide, blending: T.AdditiveBlending, uniforms: { time: { value: 0 } },
+    vertexShader: 'varying float vD; varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vec4 mv = viewMatrix * w; vD = -mv.z; gl_Position = projectionMatrix * mv; }',
+    fragmentShader: 'uniform float time; varying float vD; varying vec3 vW; void main() { float b = 0.5 + 0.5 * sin(vW.y * 1.3 - time * 2.5); float s = 0.6 + 0.4 * sin((vW.x + vW.z) * 1.7 + time * 1.5);'
+      + ' float a = (0.1 + 0.35 * b * s) * (1.0 - smoothstep(18.0, 60.0, vW.y)) * (1.0 - smoothstep(60.0, 170.0, vD)); gl_FragColor = vec4(vec3(0.45, 0.8, 1.0) * (0.7 + 0.6 * b), a); }' });
+  function barriers(scene) {
+    const wall = (g, x, z, ry, need) => { const m = new T.Mesh(g, TR.barrierMat); m.position.set(x, 20, z); m.rotation.y = ry; m.renderOrder = 3; m.userData.flat = true; scene.add(m); TR.barriers.push({ m, need }); };
+    const arc = (r, a0, a1, need) => wall(new T.CylinderGeometry(r, r, 80, Math.max(12, Math.round((a1 - a0) * r / 5)), 1, true, P / 2 - a1, a1 - a0), 0, 0, 0, need);
+    const radial = (a, r0, r1, need) => wall(new T.PlaneGeometry(r1 - r0, 80), Math.cos(a) * (r0 + r1) / 2, Math.sin(a) * (r0 + r1) / 2, -a, need);
+    arc(200, 0, P * 2, AREA_LV.inner);
+    REALMS.forEach((rl, i) => { const a = i * P / 4, nb = REALMS[(i + 1) % 8]; arc(492, a - P / 8, a + P / 8, AREA_LV[rl]); if (AREA_LV[nb] !== AREA_LV[rl]) radial(a + P / 8, 492, 800, Math.max(AREA_LV[rl], AREA_LV[nb])); });
+    FRONTIER.forEach((fl, k) => { const a = k * P * 2 / 5, nb = FRONTIER[(k + 1) % 5]; arc(800, a - P / 5, a + P / 5, AREA_LV[fl]); radial(a + P / 5, 800, 1215, Math.max(AREA_LV[fl], AREA_LV[nb])); });
+  }
+  // ---------- the dungeon: a gate near the village, and the hall it leads to ----------
+  function dungeonGate(scene) {
+    const { mat, box, add } = M(), k = KEEPS.dgate, y = TR.height(k.x, k.z), stone = mat(0x6a6470, { map: tex('stone', 2, 2) }), g = new T.Group(), v = new T.Vector3();
+    g.position.set(k.x, y, k.z); g.lookAt(0, y, 0); scene.add(g); // facing the village
+    [-1, 1].forEach(s => { add(g, box(1.8, 8, 1.8, stone), s * 3.4, 4, 0); add(g, new T.Mesh(new T.SphereGeometry(0.4, 10, 8), new T.MeshBasicMaterial({ color: 0xc07aff })), s * 3.4, 8.5, 0); });
+    add(g, box(9, 1.5, 2, stone), 0, 8.2, 0); add(g, box(9.4, 0.5, 4, stone), 0, 0.25, 0.6);
+    add(g, new T.Mesh(new T.PlaneGeometry(5, 7.4), new T.MeshBasicMaterial({ color: 0x5a2a9a, transparent: true, opacity: 0.8, side: T.DoubleSide })), 0, 3.9, 0);
+    g.updateMatrixWorld(true); [-1, 1].forEach(s => { v.set(s * 3.4, 0, 0); g.localToWorld(v); TR.addCol(v.x, v.z, 1.3); });
+    v.set(0, 0, 5); g.localToWorld(v); DUN.gate = { x: v.x, z: v.z, look: Math.atan2(-k.x, -k.z) + Math.PI }; // where you come back out, facing away from the gate
+    TR.PLACES.push({ kind: 'dungeon', x: k.x, z: k.z });
+  }
+  // a long vaulted hall of dark stone with pillars and torches; the way out at the south end, the way down at the north
+  function dungeonHall(scene) {
+    const { mat, box, add } = M(), D = DUN, stone = mat(0x4a4450, { map: tex('stone', 6, 2) }), torch = new T.MeshBasicMaterial({ color: 0xff9a3a });
+    add(scene, box(D.w + 4, 2, D.d + 4, mat(0x3a3640, { map: tex('stone', 10, 14) })), D.x, D.y - 1, D.z);
+    add(scene, box(D.w + 4, 1.5, D.d + 4, mat(0x2a2630)), D.x, D.y + 16.75, D.z);
+    [-1, 1].forEach(s => { add(scene, box(D.w + 4, 17, 2, stone), D.x, D.y + 8, D.z + s * (D.d / 2 + 1)); add(scene, box(2, 17, D.d + 4, stone), D.x + s * (D.w / 2 + 1), D.y + 8, D.z); });
+    for (let q = -D.d / 2; q <= D.d / 2; q += 2.2) [-1, 1].forEach(s => TR.addCol(D.x + s * (D.w / 2 + 0.6), D.z + q, 1.2));
+    for (let q = -D.w / 2; q <= D.w / 2; q += 2.2) [-1, 1].forEach(s => TR.addCol(D.x + q, D.z + s * (D.d / 2 + 0.6), 1.2));
+    for (let z = -D.d / 2 + 12; z < D.d / 2 - 8; z += 14) [-1, 1].forEach(s => {
+      const x = D.x + s * (D.w / 2 - 9);
+      add(scene, new T.Mesh(new T.CylinderGeometry(1.2, 1.5, 16, 12), stone), x, D.y + 8, D.z + z); TR.addCol(x, D.z + z, 1.7);
+      add(scene, new T.Mesh(new T.SphereGeometry(0.42, 10, 8), torch), x - s * 1.6, D.y + 5, D.z + z);
+    });
+    [-1, 1].forEach(s => { const l = new T.PointLight(0xff9a4a, 1.3, 70); l.position.set(D.x, D.y + 11, D.z + s * D.d / 4); scene.add(l); });
+    const portal = (z, col) => { const g = new T.Group(); g.position.set(D.x, D.y, z); scene.add(g); add(g, new T.Mesh(new T.TorusGeometry(2.7, 0.32, 8, 32), mat(0x6a6070)), 0, 3.1); add(g, new T.Mesh(new T.CircleGeometry(2.5, 32), new T.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.65, side: T.DoubleSide })), 0, 3.1); return g; };
+    portal(D.z + D.d / 2 - 2.5, 0x6fb8ff); TR.PLACES.push({ kind: 'dexit', x: D.x, z: D.z + D.d / 2 - 3 });
+    D.next = portal(D.z - D.d / 2 + 2.5, 0xb06cff); D.next.visible = false; TR.PLACES.push({ kind: 'dnext', x: D.x, z: D.z - D.d / 2 + 3 });
+    D.start = { x: D.x, z: D.z + D.d / 2 - 22 }; // far enough in that the camera behind you stays inside the hall
+  }
+
   function towns(scene) {
     const { mat, box, add } = M();
     for (const tw of TOWNS) {
@@ -739,9 +839,9 @@
 
   function chests(scene) {
     const { box, add } = M(), R = rng(99), list = [];
-    for (let i = 0; list.length < 120 && i < 12000; i++) {
-      const x = (R() - 0.5) * 1500, z = (R() - 0.5) * 1500, b = TR.biomeAt(x, z);
-      if (hyp(x, z) > 740) continue;
+    for (let i = 0; list.length < 200 && i < 24000; i++) {
+      const x = (R() - 0.5) * 2320, z = (R() - 0.5) * 2320, b = TR.biomeAt(x, z);
+      if (hyp(x, z) > 1160) continue;
       if (b === 'town' || b === 'water' || TR.keepAt(x, z)) continue;
       const y = TR.height(x, z);
       if (y < TR.liquidY(TR.liquid(x, z)) + 0.2 || y > 18) continue;

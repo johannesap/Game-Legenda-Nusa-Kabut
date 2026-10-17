@@ -3,11 +3,13 @@
 (function () {
   const TR = Terrain, H = TR.HALF, STEP = 4, VIEW = 110, $ = id => document.getElementById(id);
   const COL = { meadow: 0x78a862, forest: 0x4f7f45, mountain: 0x8a8478, desert: 0xd9b77a, ice: 0xe4edf2, magma: 0x3a3030, death: 0x4b4652, town: 0xd8c8a0, snow: 0xf2f6f8,
-    human: 0x8fb860, beast: 0xc8b070, elf: 0x5fbf8a, giant: 0x5a8a4a, dwarf: 0x7a6a5a, angel: 0xeef0f4, dragon: 0x3a2a26, demon: 0x4a1c1c };
+    human: 0x8fb860, beast: 0xc8b070, elf: 0x5fbf8a, giant: 0x5a8a4a, dwarf: 0x7a6a5a, angel: 0xeef0f4, dragon: 0x3a2a26, demon: 0x4a1c1c,
+    storm: 0x6a8a5a, glass: 0xece0c4, marsh: 0x46583a, crystal: 0x8a7ab8, void: 0x2e2038 };
   const LIQ = { water: 0x3f86b8, lava: 0xff5a1a, ice: 0xa8d0e4, cloud: 0xf4f6fa };
   // where each region's name sits on the full map (checked against Terrain.biomeAt)
   const LABELS = [['forest', -90, -80], ['meadow', 95, 75], ['mountain', 185, -185], ['desert', 290, -100], ['ice', -60, -230], ['magma', -290, 110], ['death', 0, 300],
-    ['human', 640, 0], ['beast', 452, 452], ['demon', 0, 640], ['dragon', -452, 452], ['giant', -640, 0], ['dwarf', -452, -452], ['angel', 0, -640], ['elf', 452, -452]];
+    ['human', 640, 0], ['beast', 452, 452], ['demon', 0, 640], ['dragon', -452, 452], ['giant', -640, 0], ['dwarf', -452, -452], ['angel', 0, -640], ['elf', 452, -452],
+    ['storm', 1000, 0], ['glass', 309, 951], ['marsh', -809, 588], ['crystal', -809, -588], ['void', 309, -951]];
 
   let base = null, full = null;
   function bake() {
@@ -56,7 +58,8 @@
       c.strokeText(txt, q[0], q[1] + dy * u); c.fillStyle = col || ink; c.fillText(txt, q[0], q[1] + dy * u);
     };
     const dot = (q, rad, col) => { c.beginPath(); c.arc(q[0], q[1], rad * u, 0, Math.PI * 2); c.fillStyle = col; c.fill(); c.lineWidth = 1.5 * u; c.strokeStyle = panel; c.stroke(); };
-    if (isFull) for (const [b, x, z] of LABELS) label(L(BIOMES[b].name), at(x, z), 0, 15, tok('display'));
+    // areas the hero can't enter yet carry the level they open at
+    if (isFull) for (const [b, x, z] of LABELS) { const need = TR.areaLevel(x, z), lock = Game.S && need > Game.S.lvl; label(L(BIOMES[b].name) + (lock ? ' 🔒 Lv ' + need : ''), at(x, z), 0, 15, tok('display'), lock ? tok('hp') : null); }
     for (const tw of TOWNS) { const q = at(tw.x, tw.z); dot(q, 4, tok('gold')); if (!q[2]) label(L(tw.name), q, 12, isFull ? 12 : 10); }
     const icon = (q, rad, bg, ch) => { dot(q, rad, bg); c.font = (rad + 3) * u + 'px sans-serif'; c.fillStyle = '#fff'; c.fillText(ch, q[0], q[1] + 0.5 * u); };
     for (const tw of TR.TOWERS) { const q = at(tw.x, tw.z); if (!q[2]) dot(q, 2.5, '#6a6458'); }

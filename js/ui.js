@@ -37,6 +37,9 @@
   $('panel').addEventListener('pointerdown', e => { if (e.target.id === 'panel') UI.close(); });
   addEventListener('keydown', e => { if (e.key === 'Escape' && !$('panel').hidden) UI.close(); });
 
+  // a big warning in the middle of the screen when a wall of light stops the hero
+  let lockT = 0;
+  UI.lockWarn = need => { const el = $('lockwarn'); el.textContent = t('lockWarn', { n: need }); el.hidden = false; clearTimeout(lockT); lockT = setTimeout(() => { el.hidden = true; }, 2400); };
   UI.toast = function (msg) {
     if (Game.S && Game.S.settings.notif === false) return;
     const el = h('div', { class: 'toast card', role: 'status' }, msg); $('toasts').append(el);

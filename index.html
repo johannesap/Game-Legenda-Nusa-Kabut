@@ -251,6 +251,10 @@ body.inbattle #actBtn,body.inbattle #atkBtn{visibility:hidden}
   #menu button{padding:.4em .55em;font-size:.82em}
   .classes{grid-template-columns:1fr}
 }
+/* a wall of light stops the hero: warning in the middle; the dungeon's floor and monster count at the top */
+#lockwarn{position:fixed;left:50%;top:32%;transform:translateX(-50%);z-index:21;max-width:min(440px,calc(100% - 32px));padding:12px 18px;border-radius:10px;background:rgba(20,10,14,.88);border:2px solid #ff6a5a;color:#ffe6e0;font-weight:700;text-align:center;box-shadow:0 4px 18px rgba(0,0,0,.5);pointer-events:none}
+#dhud{position:fixed;left:50%;top:calc(118px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:6;padding:6px 14px;border-radius:99px;background:rgba(30,14,48,.85);border:1px solid #b06cff;color:#f0e6ff;font:500 .9em "Oswald","Arial Narrow",sans-serif;letter-spacing:.03em;white-space:nowrap;pointer-events:none}
+@media (max-height:520px){#dhud{top:calc(96px + env(safe-area-inset-top,0px));font-size:.78em}}
 /* touch screens: analog stick bottom-left */
 #stick{position:fixed;left:max(18px,env(safe-area-inset-left,0px));width:120px;height:120px;border-radius:50%;background:rgba(16,18,22,.32);border:2px solid rgba(255,255,255,.4);z-index:5;touch-action:none;display:grid;place-items:center;user-select:none;-webkit-user-select:none}
 #stick i{width:52px;height:52px;border-radius:50%;background:rgba(240,240,240,.8);box-shadow:0 2px 8px rgba(0,0,0,.45);pointer-events:none;transition:transform .08s}
@@ -306,6 +310,8 @@ body.touch #hint{display:none}
 <div id="hint"></div>
 <nav id="menu" class="wrap" aria-label="Menu"></nav>
 <div id="toasts" aria-live="polite"></div>
+<div id="lockwarn" role="alert" hidden></div>
+<div id="dhud" aria-live="polite" hidden></div>
 <div id="rotate" role="dialog" aria-labelledby="rotTitle" hidden><div class="rot-card"><div class="rot-phone" aria-hidden="true"></div><h2 id="rotTitle"></h2><p id="rotText"></p><button id="rotBtn" type="button" class="primary"></button></div></div>
 <div id="fx" aria-hidden="true"></div>
 <div id="stick" aria-hidden="true" hidden><i></i></div>
@@ -360,3 +366,4 @@ body.touch #hint{display:none}
 <script src="js/map.js"></script>
 <script src="js/main.js"></script>
 <script src="js/action.js"></script>
+<script src="js/dungeon.js"></script>

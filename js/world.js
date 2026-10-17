@@ -10,6 +10,7 @@
   // deep water means swimming (body at the surface, slower, no jumping); shallower water is waded through
   W.stance = (x, z) => {
     if (TR.skyAt(x, z)) return { y: TR.SKY.y, swim: false };
+    if (TR.dungeonAt(x, z)) return { y: TR.DUNGEON.y, swim: false };
     const h = TR.height(x, z), liq = TR.liquid(x, z);
     return liq === 'water' && h < TR.WATER - 1.25 ? { y: TR.WATER, swim: true } : { y: Math.max(h, TR.liquidY(liq)), swim: false };
   };
@@ -185,6 +186,7 @@
     hemi.intensity = 0.3 + 0.5 * day; hemi.color.copy(s.navy).lerp(s.white, day);
     TR.lavaMat.color.setHSL(0.04, 1, 0.5 + Math.sin(now / 400) * 0.05);
     TR.waveTex.offset.set(now * 0.000011, now * 0.000007); // ripples drift across the water
+    TR.barrierMat.uniforms.time.value = now / 1000;
     for (const sp of TR.springs) sp.mesh.material.emissiveIntensity = 0.8 + Math.sin(now / 500) * 0.3;
     for (const m of TR.mills) m.rotation.z = now / 1600;
     for (const w of TR.warps) { w.gem.rotation.y = now / 700; w.gem.position.y = 4.6 + Math.sin(now / 600) * 0.2; }
@@ -212,14 +214,18 @@
   const pick = a => a[Math.random() * a.length | 0];
   const inWater = (x, z) => TR.liquid(x, z) === 'water' && TR.height(x, z) < TR.WATER - 0.3;
   const onLand = (x, z) => TR.height(x, z) >= TR.liquidY(TR.liquid(x, z)) - 0.05 && !TR.townAt(x, z, 4);
+  const lvlNow = () => W.heroLvl ? W.heroLvl() : 1;
+  W.open = (x, z) => TR.areaLevel(x, z) <= lvlNow();
   function spawn(type, x, z) {
     const d = ENEMIES[type], m = W.buildEnemy(type); m.position.set(x, TR.ground(x, z), z); scene.add(m);
-    W.enemies.push({ type, mesh: m, water: !!d.water, float: !!d.float, boss: !!d.boss, size: d.scale || 1, home: new T.Vector3(x, 0, z), goal: new T.Vector3(x, 0, z), wait: 0, ph: Math.random() * 6 });
+    const e = { type, mesh: m, water: !!d.water, float: !!d.float, boss: !!d.boss, size: d.scale || 1, home: new T.Vector3(x, 0, z), goal: new T.Vector3(x, 0, z), wait: 0, ph: Math.random() * 6 };
+    W.enemies.push(e); return e;
   }
+  W.spawnAt = spawn; // the dungeon places its own monsters
   // new monsters appear 45–130 m away, picked from the region (or water) they land in
   function spawnNear() {
     const p = player.position, a = Math.random() * P * 2, d = 45 + Math.random() * 85, x = clampW(p.x + Math.cos(a) * d), z = clampW(p.z + Math.sin(a) * d);
-    if (TR.townAt(x, z, 14)) return;
+    if (TR.townAt(x, z, 14) || TR.dungeonAt(x, z) || !W.open(x, z)) return; // nothing spawns behind a wall the hero can't pass yet
     if (inWater(x, z)) return spawn(pick(WATER_SPAWN(hyp(x, z))), x, z);
     const b = TR.biomeAt(x, z);
     if (onLand(x, z) && BIOMES[b] && BIOMES[b].spawn.length) { const ty = pick(BIOMES[b].spawn); spawn(BIOMES[b].realm && W.heroLvl ? realmFoe(ty, W.heroLvl()) : ty, x, z); }
@@ -292,6 +298,7 @@
         const x0 = p.x, z0 = p.z;
         p.x = clampW(p.x + mv.x); p.z = clampW(p.z + mv.z);
         TR.collide(p, 0.5); // trees, rocks, houses and fountains are solid; water is walkable
+        if (!W.open(p.x, p.z) && W.open(x0, z0)) { const need = TR.areaLevel(p.x, p.z); p.x = x0; p.z = z0; target = null; W.onLocked && W.onLocked(need); } // a locked area: stay out (walking out of one is fine)
         const moved = hyp(p.x - x0, p.z - z0);
         if (W.onStep) W.onStep(moved);
         if (target && moved < (swimming ? 5 : 9) * dt * 0.25) { if ((stuck += dt) > 0.5) { target = null; stuck = 0; } } else stuck = 0;
@@ -337,6 +344,7 @@
       cam.lookAt(p.x, gy + 1.5, p.z);
     }
     updateLife(dt, now, updateSky(now));
+    cam.updateMatrixWorld(); TR.cull(cam, p);
     renderer.render(scene, cam);
   }
 
@@ -352,7 +360,7 @@
       const can = e.water ? inWater : onLand, far = hyp(m.position.x - e.home.x, m.position.z - e.home.z), reach = (e.boss ? 3.2 : 1.3) + 0.45 * e.size;
       // real-time fights: a monster that sees you (or that you hit) comes after you until it strays too far from home
       if (d < (e.boss ? 14 : 10) && !safe && !sailing && now > W.grace && can(p.x, p.z) === can(m.position.x, m.position.z)) e.aggro = true;
-      if (e.aggro && (far > (e.boss ? 24 : 45) || d > 40 || safe || sailing || now < W.grace)) { e.aggro = false; W.onLeash && W.onLeash(e); }
+      if (e.aggro && !e.dungeon && (far > (e.boss ? 24 : 45) || d > 40 || safe || sailing || now < W.grace)) { e.aggro = false; W.onLeash && W.onLeash(e); }
       const chase = e.aggro && !(e.stunUntil > now), close = chase && d < reach;
       let goal = e.goal, speed = e.water ? 2.8 : 2.2;
       if (chase) { goal = p; speed = e.water ? 6 : e.boss ? 4 : 5.5; }
@@ -365,7 +373,7 @@
       if (chase && W.onEnemy) W.onEnemy(e, d, reach, now);
       if (!close && (e.boss ? l > 1.5 : l > 0.3 && e.wait <= 0 || chase)) {
         const nx = m.position.x + dx / l * speed * dt, nz = m.position.z + dz / l * speed * dt;
-        if (can(nx, nz)) { m.position.x = nx; m.position.z = nz; if (!e.water && !e.float) TR.collide(m.position, 0.6 * e.size); } else e.goal.copy(e.home);
+        if (can(nx, nz) && (W.open(nx, nz) || !W.open(m.position.x, m.position.z))) { m.position.x = nx; m.position.z = nz; if (!e.water && !e.float) TR.collide(m.position, 0.6 * e.size); } else e.goal.copy(e.home);
         if (!chase) m.rotation.y = Math.atan2(dx, dz);
         if (m.userData.walker) animateWalk(m.userData.walker, true, dt);
       }
@@ -382,6 +390,7 @@
     // announce a new region (water counts as the region around it)
     if ((areaT -= dt) < 0) {
       areaT = 0.5;
+      const lv = lvlNow(); for (const b of TR.barriers) b.m.visible = lv < b.need;
       const tw = TR.townAt(p.x, p.z), b = TR.biomeAt(p.x, p.z), area = tw ? 'town:' + tw.id : b === 'water' ? lastArea : b;
       if (area && area !== lastArea) { lastArea = area; W.onArea && W.onArea(tw ? 'town' : b, tw); }
     }
@@ -396,7 +405,7 @@
       s.heading += Math.max(-1.6 * dt, Math.min(1.6 * dt, d)); s.speed = Math.min(14, s.speed + 8 * dt);
     } else s.speed = Math.max(0, s.speed - 6 * dt);
     const nx = m.position.x + Math.sin(s.heading) * s.speed * dt, nz = m.position.z + Math.cos(s.heading) * s.speed * dt;
-    if (navigable(nx, nz)) { if (W.onStep) W.onStep(s.speed * dt); m.position.x = nx; m.position.z = nz; } else { s.speed = 0; target = null; } // ran aground
+    if (navigable(nx, nz) && W.open(nx, nz)) { if (W.onStep) W.onStep(s.speed * dt); m.position.x = nx; m.position.z = nz; } else { s.speed = 0; target = null; } // ran aground
     m.rotation.y = s.heading; m.position.y = TR.WATER + Math.sin(now / 600) * 0.08; m.rotation.z = Math.sin(now / 900) * 0.04;
     p.set(m.position.x - Math.sin(s.heading) * 0.8, m.position.y + m.userData.deck, m.position.z - Math.cos(s.heading) * 0.8);
     player.rotation.y = s.heading;

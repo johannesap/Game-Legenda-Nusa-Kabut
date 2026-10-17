@@ -251,7 +251,16 @@
     const g = ENEMIES[type].lvl * 60; S.bossClaims.push(type); S.gold += g; S.st.gold += g;
     G.notify(t('royalReward', { g, n: L(ENEMIES[type].name) })); G.save(); UI.hud();
   };
-  World.onPlace = kind => kind === 'skyup' || kind === 'skydown' ? G.skyGate(kind) : UI.open(kind);
+  World.onPlace = kind => kind === 'skyup' || kind === 'skydown' ? G.skyGate(kind) : kind === 'dungeon' || kind === 'dnext' || kind === 'dexit' ? Dungeon.place(kind) : UI.open(kind);
+  // walking into an area that needs a higher level
+  let warnT = 0;
+  World.onLocked = need => { if (performance.now() < warnT) return; warnT = performance.now() + 2500; UI.lockWarn(need); };
+  // clearing the dungeon's fifth floor
+  G.dungeonReward = function (lvl) {
+    const S = G.S, gold = 60 * lvl, xp = Math.round(xpNeed(Math.min(lvl, MAX_LVL - 1)) * 0.4), msgs = [t('dReward', { g: gold, x: xp })];
+    S.gold += gold; S.st.gold += gold; gainXp(xp, msgs); G.addItem('hipotion'); G.addItem('hipotion');
+    msgs.forEach(m => UI.toast(m)); questCheck(); G.save(); UI.hud();
+  };
   // the gates between the ground and the floating castle
   G.skyGate = function (kind) {
     const g = Terrain.SKYGATES[kind === 'skyup' ? 'top' : 'bottom'];
@@ -261,7 +270,9 @@
   // teleport stones link every settlement
   G.warp = function (w) {
     if (!World.context || World.context.kind !== 'warp' || Battle.active()) return;
-    UI.close(); World.warp(w.ax, w.az, Math.atan2(w.town.x - w.ax, w.town.z - w.az)); // camera over the fountain, the stone behind you FX.flashScreen(0x9ff0ff, 0.7); UI.toast(t('warped', { town: L(w.town.name) })); G.save();
+    if (Terrain.areaLevel(w.town.x, w.town.z) > G.S.lvl) return UI.toast(t('lockWarn', { n: Terrain.areaLevel(w.town.x, w.town.z) }));
+    UI.close(); World.warp(w.ax, w.az, Math.atan2(w.town.x - w.ax, w.town.z - w.az)); // camera over the fountain, the stone behind you
+    FX.flashScreen(0x9ff0ff, 0.7); UI.toast(t('warped', { town: L(w.town.name) })); G.save();
   };
   World.onContext = c => UI.action(c);
   World.onSail = on => { if (on) { G.S.st.sailed++; G.checkAch(); } UI.toast(t(on ? 'sailOn' : 'sailOff')); };
@@ -301,6 +312,7 @@
   function start(S) {
     G.S = migrate(S);
     G.applySettings(); UI.buildMenu();
+    if (S.pos && Terrain.dungeonAt(S.pos.x, S.pos.z)) S.pos = { x: Terrain.DUNGEON.gate.x, z: Terrain.DUNGEON.gate.z };
     World.setHero(G.heroLook(), S.cls, S.pos); World.setChests(S.daily.opened);
     timeChecks(); questCheck(); UI.hud(); UI.sync(Cloud.status);
     World.paused = false; G.save();

@@ -314,6 +314,43 @@ Object.assign(ENEMIES, {
   hellhound:  mob('Anjing Neraka', 'Hellhound', 22, 0x2a1a1a, 'beast', { mane: 0x8a1a0a, agi: 12, poison: .2 }),
   demonlord:  lord('Raja Iblis', 'Demon Lord', 28, 0x8a1a1a, 'humanoid', [N('Api Neraka', 'Hellfire'), 0xff3a1a], { outfit: 0x1a0a0a, weapon: 'greatsword', horns: true, wings: 0x1a0a0a, bat: true, scale: 2.1 })
 });
+
+// the frontier beyond the old world edge: five lands, opening one by one from Lv 60 to Lv 100
+const fDrops = t => [['hipotion', .35], ['ether', .25], ['weapon' + t, .04], ['armor' + (t + 1), .03]];
+Object.assign(ENEMIES, {
+  stormwolf:   mob('Serigala Badai', 'Storm Wolf', 60, 0x6a7a9a, 'beast', { mane: 0xd0e0ff, agi: 12, drops: fDrops(6) }),
+  thundergolem:mob('Golem Petir', 'Thunder Golem', 62, 0x5a6070, 'golem', { glow: 0xfff36a, agi: 3, stun: .2, drops: fDrops(6) }),
+  stormknight: mob('Ksatria Badai', 'Storm Knight', 64, 0xd0c0a8, 'humanoid', { outfit: 0x3a4a7a, weapon: 'knight', hat: 1, drops: fDrops(6) }),
+  thunderking: lord('Raja Guntur', 'Thunder King', 68, 0xd8c8a8, 'humanoid', [N('Badai Guntur', 'Thunderstorm'), 0xfff36a, 'strike', 'bolt'], { outfit: 0x2a3a6a, weapon: 'greatsword', scale: 2, drops: [['weapon7', .35], ['armor8', .3], ['hipotion', 1]] }),
+  glassscorp:  mob('Kalajengking Kaca', 'Glass Scorpion', 70, 0xbfe8ff, 'scorpion', { poison: .2, drops: fDrops(7) }),
+  sandwraith:  mob('Roh Pasir', 'Sand Wraith', 72, 0xe8d8a0, 'ghost', { float: true, agi: 13, drops: fDrops(7) }),
+  glassgolem:  mob('Golem Kaca', 'Glass Golem', 74, 0xd8f0ff, 'golem', { glow: 0x9fe8ff, def: 95, drops: fDrops(7) }),
+  glasssphinx: lord('Sfinks Kaca', 'Glass Sphinx', 78, 0xe8d090, 'beast', [N('Sinar Fatamorgana', 'Mirage Beam'), 0x9fe8ff, 'bolt', 'arcane'], { mane: 0x9fe8ff, scale: 2.4, drops: [['weapon8', .35], ['armor8', .3], ['hipotion', 1]] }),
+  boglizard:   mob('Kadal Rawa', 'Bog Lizard', 80, 0x4a6a3a, 'beast', { horn: true, poison: .2, drops: fDrops(8) }),
+  rottreant:   mob('Treant Busuk', 'Rotting Treant', 82, 0x4a3a2a, 'treant', { agi: 3, drops: fDrops(8) }),
+  toxicooze:   mob('Lendir Racun', 'Toxic Ooze', 84, 0x7bdc5a, 'slime', { poison: .35, drops: fDrops(8) }),
+  swamphydra:  lord('Hidra Rawa', 'Swamp Hydra', 88, 0x3f7a4a, 'dragon', [N('Napas Racun', 'Venom Breath'), 0x8fe04a, 'bolt', 'poison'], { wing: 0x2a4a2a, scale: 1.2, drops: [['weapon9', .3], ['armor9', .3], ['hipotion', 1]] }),
+  crystalstag: mob('Rusa Kristal', 'Crystal Stag', 90, 0x9a8aff, 'beast', { horn: true, agi: 13, drops: fDrops(8) }),
+  crystalsentinel: mob('Penjaga Kristal', 'Crystal Sentinel', 92, 0xb0a0ff, 'golem', { glow: 0xd0b0ff, def: 110, drops: fDrops(8) }),
+  crystalwisp: mob('Peri Kristal', 'Crystal Wisp', 94, 0xc0a0ff, 'wisp', { float: true, stun: .25, drops: fDrops(8) }),
+  crystaldragon: lord('Naga Kristal', 'Crystal Dragon', 98, 0xa090ff, 'dragon', [N('Hujan Kristal', 'Crystal Rain'), 0xc0b0ff, 'meteor', 'ice'], { wing: 0x6a5ab0, scale: 1.4, drops: [['weapon9', .4], ['armor10', .3], ['hipotion', 1]] }),
+  voidshade:   mob('Bayangan Hampa', 'Void Shade', 100, 0x5a3a8a, 'ghost', { float: true, agi: 14, drops: fDrops(9) }),
+  voidfiend:   mob('Iblis Hampa', 'Void Fiend', 100, 0x2a1a3a, 'humanoid', { outfit: 0x1a0a2a, weapon: 'scythe', horns: true, wings: 0x2a1a3a, bat: true, drops: fDrops(9) }),
+  voideye:     mob('Mata Hampa', 'Void Eye', 100, 0x8a3aff, 'wisp', { float: true, stun: .3, drops: fDrops(9) }),
+  voidsovereign: lord('Penguasa Hampa', 'Void Sovereign', 100, 0x3a2a5a, 'humanoid', [N('Ledakan Hampa', 'Void Burst'), 0xb06cff, 'meteor', 'dark'], { outfit: 0x0a0a1a, weapon: 'greatsword', horns: true, wings: 0x1a0a2a, halo: true, scale: 2.6, drops: [['weapon9', 1], ['armor10', .6], ['hipotion', 1]] })
+});
+// the dungeon's foes at any level: the strongest ordinary monsters up to that level (scaled forms where they exist)
+window.dungeonFoes = (lvl, n) => {
+  const near = Object.keys(ENEMIES).filter(k => { const e = ENEMIES[k]; return !e.boss && !e.water && !e.of && e.lvl <= lvl + 1; }).sort((a, b) => ENEMIES[b].lvl - ENEMIES[a].lvl).slice(0, 4);
+  return Array.from({ length: n }, () => realmFoe(near[Math.random() * near.length | 0] || 'slime', lvl));
+};
+// the warden on the dungeon's fifth floor, made for the hero's level
+window.dungeonBoss = lvl => {
+  const id = 'dboss_' + lvl, t = Math.min(9, Math.max(1, Math.ceil(lvl / 10)));
+  if (!ENEMIES[id]) ENEMIES[id] = { ...lord('Penjaga Dungeon', 'Dungeon Warden', lvl, 0x4a3a6a, 'golem', [N('Gempa Kegelapan', 'Dark Quake'), 0xb06cff, 'meteor', 'dark'],
+    { glow: 0xb06cff, scale: 1.8, drops: [['hipotion', 1], ['weapon' + t, .5], ['armor' + Math.min(10, t + 1), .4]] }), of: 'dboss' };
+  return id;
+};
 // map regions; spawn lists pick the monsters that roam there
 window.BIOMES = {
   town:     { name: N('Pemukiman', 'Settlement'), spawn: [] },
@@ -326,6 +363,11 @@ window.BIOMES = {
   death:    { name: N('Hutan Kematian', 'Deathwood'), spawn: ['zombie', 'ghost', 'skeleton', 'reaper'] },
   water:    { name: N('Perairan', 'Waters'), spawn: [] },
   // the eight realms beyond the mountain ring
+  storm:    { name: N('Padang Badai', 'Stormlands'), realm: true, frontier: true, spawn: ['stormwolf', 'thundergolem', 'stormknight'] },
+  glass:    { name: N('Gurun Kaca', 'Glass Desert'), realm: true, frontier: true, spawn: ['glassscorp', 'sandwraith', 'glassgolem'] },
+  marsh:    { name: N('Rawa Purba', 'Primeval Marsh'), realm: true, frontier: true, spawn: ['boglizard', 'rottreant', 'toxicooze'] },
+  crystal:  { name: N('Hutan Kristal', 'Crystal Forest'), realm: true, frontier: true, spawn: ['crystalstag', 'crystalsentinel', 'crystalwisp'] },
+  void:     { name: N('Tanah Hampa', 'Void Reach'), realm: true, frontier: true, spawn: ['voidshade', 'voidfiend', 'voideye'] },
   human:    { name: N('Negeri Manusia', 'Human Kingdom'), realm: true, spawn: ['bandit', 'renegade', 'bandit'] },
   beast:    { name: N('Negeri Beast', 'Beastlands'), realm: true, spawn: ['lion', 'rhino', 'lion'] },
   elf:      { name: N('Negeri Elf', 'Elven Realm'), realm: true, spawn: ['dryad', 'spiritstag', 'dryad'] },
@@ -350,6 +392,10 @@ for (const type of new Set(Object.values(BIOMES).filter(b => b.realm).flatMap(b 
 window.realmFoe = (type, lvl) => { let best = type; for (let lv = 25; lv <= lvl + 2; lv += 5) if (ENEMIES[type + '_' + lv]) best = type + '_' + lv; return best; };
 // the realms in order around the map, every 45° starting east
 window.REALMS = ['human', 'beast', 'demon', 'dragon', 'giant', 'dwarf', 'angel', 'elf'];
+// the frontier lands beyond them, every 72° starting east
+window.FRONTIER = ['storm', 'glass', 'marsh', 'crystal', 'void'];
+// the level each area opens at: the centre is free, then one step every 10 levels
+window.AREA_LV = { inner: 10, human: 20, beast: 20, elf: 30, giant: 30, dwarf: 40, angel: 40, dragon: 50, demon: 50, storm: 60, glass: 70, marsh: 80, crystal: 90, void: 100 };
 // where each region's boss waits (lairs are nudged onto dry ground by terrain.js; the kraken stays in the lake)
 window.LAIRS = [
   { type: 'kingslime', region: 'meadow', x: 80, z: 135 }, { type: 'treant', region: 'forest', x: -60, z: -140 },
@@ -358,7 +404,9 @@ window.LAIRS = [
   { type: 'lichking', region: 'death', x: -60, z: 380 }, { type: 'kraken', region: 'water', x: -78, z: 78 },
   { type: 'warlord', region: 'human', x: 675, z: 143 }, { type: 'beastking', region: 'beast', x: 376, z: 579 }, { type: 'demonlord', region: 'demon', x: 0, z: 668 },
   { type: 'elderdragon', region: 'dragon', x: -442, z: 442 }, { type: 'giantking', region: 'giant', x: -675, z: -143 }, { type: 'ironking', region: 'dwarf', x: -376, z: -579 },
-  { type: 'seraph', region: 'angel', x: 143, z: -675 }, { type: 'dryadqueen', region: 'elf', x: 579, z: -376 }
+  { type: 'seraph', region: 'angel', x: 143, z: -675 }, { type: 'dryadqueen', region: 'elf', x: 579, z: -376 },
+  { type: 'thunderking', region: 'storm', x: 1024, z: 373 }, { type: 'glasssphinx', region: 'glass', x: -38, z: 1089 }, { type: 'swamphydra', region: 'marsh', x: -1040, z: 312 },
+  { type: 'crystaldragon', region: 'crystal', x: -684, z: -853 }, { type: 'voidsovereign', region: 'void', x: 738, z: -808 }
 ];
 // adventurers' guild ranks and the points needed for each
 window.RANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
@@ -382,7 +430,13 @@ window.TOWNS = [
   { id: 'jotun', x: -566, z: 100, r: 64, houses: 0, style: 13, build: 'giant', name: N('Kastil Raksasa Jotun', 'Jotun Giant Castle') },
   { id: 'durak', x: -471, z: -330, r: 44, houses: 0, style: 14, build: 'machine', name: N('Kota Mesin Durak', 'Durak Engine City') },
   { id: 'seraphel', x: 0, z: -650, r: 76, houses: 0, style: 15, sky: true, name: N('Kastil Langit Seraphel', 'Seraphel Sky Castle') }, // floats high above the angel realm
-  { id: 'lirien', x: 330, z: -471, r: 44, houses: 0, style: 16, build: 'elf', name: N('Kerajaan Hutan Lirien', 'Lirien Forest Kingdom') }
+  { id: 'lirien', x: 330, z: -471, r: 44, houses: 0, style: 16, build: 'elf', name: N('Kerajaan Hutan Lirien', 'Lirien Forest Kingdom') },
+  // frontier settlements, one in each land beyond the old world edge
+  { id: 'valdr', x: 960, z: 0, r: 34, houses: 8, style: 5, walls: true, name: N('Benteng Badai Valdr', 'Valdr Stormhold') },
+  { id: 'saphira', x: 297, z: 913, r: 32, houses: 7, style: 2, name: N('Oasis Kaca Saphira', 'Saphira Glass Oasis') },
+  { id: 'moorfen', x: -777, z: 564, r: 32, houses: 7, style: 4, name: N('Desa Rawa Moorfen', 'Moorfen Bog Village') },
+  { id: 'lumina', x: -777, z: -564, r: 34, houses: 8, style: 7, walls: true, name: N('Kota Kristal Lumina', 'Lumina Crystal City') },
+  { id: 'nyx', x: 297, z: -913, r: 34, houses: 7, style: 11, walls: true, name: N('Benteng Terakhir Nyx', 'Nyx Last Bastion') }
 ];
 // what each settlement's shop sells: goods and skill books
 const STOCK = {
@@ -402,6 +456,11 @@ const STOCK = {
   durak: [['hipotion', 'ether', 'armor5', 'weapon6', 'weapon7', 'armor7', 'armor8'], ['thunderstorm', 'shadowstrike']],
   seraphel: [['hipotion', 'ether', 'armor5', 'weapon7', 'weapon8', 'armor8', 'armor9'], ['holynova', 'arcanemissile']],
   drakonis: [['hipotion', 'ether', 'weapon8', 'weapon9', 'armor9', 'armor10'], ['flamewave', 'thunderstorm']],
+  valdr: [['hipotion', 'ether', 'weapon7', 'armor8'], ['thunderstorm', 'holynova']],
+  saphira: [['hipotion', 'ether', 'weapon8', 'armor9'], ['arcanemissile', 'flamewave']],
+  moorfen: [['hipotion', 'ether', 'weapon8', 'armor9'], ['earthspike', 'shadowstrike']],
+  lumina: [['hipotion', 'ether', 'weapon9', 'armor10'], ['holynova', 'thunderstorm']],
+  nyx: [['hipotion', 'ether', 'weapon9', 'armor10'], ['shadowstrike', 'arcanemissile']],
   vorx: [['hipotion', 'ether', 'weapon4', 'weapon9', 'armor10'], ['shadowstrike', 'holynova']]
 };
 TOWNS.forEach(tw => { tw.goods = STOCK[tw.id][0]; tw.books = STOCK[tw.id][1]; });
