@@ -56,6 +56,7 @@
   UI.place = () => {
     const mh = $('menu').offsetHeight, hb = $('hotbar'), hh = hb && hb.children.length ? hb.offsetHeight + 6 : 0, low = innerHeight <= 520, up = low ? 0 : hh;
     if (hb) hb.style.bottom = (mh + 6) + 'px'; $('hint').style.bottom = (mh + 6 + hh) + 'px';
+    $('stick').style.bottom = (mh + (low ? 6 : 10 + hh)) + 'px'; // beside the hotbar when the screen is short, above it otherwise
     $('jumpBtn').style.bottom = (mh + (low ? 10 : 36) + up) + 'px'; $('atkBtn').style.bottom = (mh + (low ? 4 : 32) + up) + 'px'; $('actBtn').style.bottom = (mh + (low ? 74 : 110) + up) + 'px';
   };
   // phones play sideways: while the phone is upright a card asks to turn it (and pauses the world); where the browser
@@ -73,6 +74,20 @@
     (document.fullscreenElement || !el.requestFullscreen ? lock() : el.requestFullscreen({ navigationUI: 'hide' }).then(lock)).catch(() => { }); // iPhones and some frames refuse: the card stays until the phone is turned
   };
   if (phone) { addEventListener('resize', UI.orient); addEventListener('pointerdown', lockLandscape, { once: true }); $('rotBtn').onclick = lockLandscape; }
+  // touch screens: an analog stick bottom-left for walking and sailing (tapping the ground still works too)
+  if (matchMedia('(pointer: coarse)').matches) {
+    document.body.classList.add('touch');
+    const base = $('stick'), knob = base.firstChild; let id = null; base.hidden = false;
+    const move = e => {
+      const r = base.getBoundingClientRect(), R = r.width / 2, dx = e.clientX - r.left - R, dy = e.clientY - r.top - R, l = Math.hypot(dx, dy) || 1, m = Math.min(1, l / R);
+      knob.style.transform = 'translate(' + dx * m * R / l + 'px,' + dy * m * R / l + 'px)';
+      World.stick.x = m < 0.15 ? 0 : dx / l * m; World.stick.y = m < 0.15 ? 0 : dy / l * m; // a small dead zone in the middle
+    };
+    const end = e => { if (e.pointerId !== id) return; id = null; knob.style.transform = ''; World.stick.x = World.stick.y = 0; };
+    base.addEventListener('pointerdown', e => { id = e.pointerId; try { base.setPointerCapture(id); } catch (err) { /* already released */ } move(e); e.preventDefault(); });
+    base.addEventListener('pointermove', e => { if (e.pointerId === id) move(e); });
+    base.addEventListener('pointerup', end); base.addEventListener('pointercancel', end);
+  }
   // context action (board a ship, go ashore, enter the guild or castle); Enter does the same
   UI.action = c => { const b = $('actBtn'); b.hidden = !c; if (c) b.textContent = t('act.' + c.kind); };
   $('actBtn').onclick = () => World.interact();

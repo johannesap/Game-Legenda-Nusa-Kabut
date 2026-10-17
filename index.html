@@ -251,6 +251,11 @@ body.inbattle #actBtn,body.inbattle #atkBtn{visibility:hidden}
   #menu button{padding:.4em .55em;font-size:.82em}
   .classes{grid-template-columns:1fr}
 }
+/* touch screens: analog stick bottom-left */
+#stick{position:fixed;left:max(18px,env(safe-area-inset-left,0px));width:120px;height:120px;border-radius:50%;background:rgba(16,18,22,.32);border:2px solid rgba(255,255,255,.4);z-index:5;touch-action:none;display:grid;place-items:center;user-select:none;-webkit-user-select:none}
+#stick i{width:52px;height:52px;border-radius:50%;background:rgba(240,240,240,.8);box-shadow:0 2px 8px rgba(0,0,0,.45);pointer-events:none;transition:transform .08s}
+body.inbattle #stick{visibility:hidden}
+body.touch #hint{display:none}
 /* phones play sideways: a card asks to turn the phone while it is upright */
 #rotate{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 40%,#1e2638,#0b0e14);color:#ece7da;text-align:center}
 #rotate .rot-card{max-width:320px;display:flex;flex-direction:column;align-items:center;gap:14px}
@@ -275,6 +280,8 @@ body.inbattle #actBtn,body.inbattle #atkBtn{visibility:hidden}
   #hotbar .hb{width:50px;height:44px}
   #jumpBtn{width:50px;height:50px}
   #atkBtn{width:60px;height:60px;right:calc(max(16px,env(safe-area-inset-right,0px)) + 58px)}
+  #stick{width:104px;height:104px}#stick i{width:46px;height:46px}
+  body.touch #hotbar{left:calc(max(18px,env(safe-area-inset-left,0px)) + 116px);max-width:calc(100% - 320px)}
 }
 </style>
 
@@ -301,6 +308,7 @@ body.inbattle #actBtn,body.inbattle #atkBtn{visibility:hidden}
 <div id="toasts" aria-live="polite"></div>
 <div id="rotate" role="dialog" aria-labelledby="rotTitle" hidden><div class="rot-card"><div class="rot-phone" aria-hidden="true"></div><h2 id="rotTitle"></h2><p id="rotText"></p><button id="rotBtn" type="button" class="primary"></button></div></div>
 <div id="fx" aria-hidden="true"></div>
+<div id="stick" aria-hidden="true" hidden><i></i></div>
 <button id="jumpBtn" type="button"></button>
 <button id="atkBtn" type="button"></button>
 <button id="actBtn" type="button" class="primary" hidden></button>

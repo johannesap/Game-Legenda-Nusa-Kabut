@@ -190,6 +190,7 @@
   };
   W.playerPos = () => player ? { x: +player.position.x.toFixed(1), z: +player.position.z.toFixed(1) } : { x: 0, z: 6 };
   W.frozenUntil = 0;
+  W.stick = { x: 0, y: 0 };
   W.moveTo = v => { target = v ? new T.Vector3(v.x, 0, v.z) : null; }; // walk toward a point (null stops)
   W.warp = (x, z, look) => { if (!player) return; sailing = null; swimming = false; target = null; jumpH = vy = 0; player.position.set(x, TR.ground(x, z), z); if (look != null) yaw = look; snap = true; updateContext(); };
   W.toVillage = () => { if (player) { sailing = null; swimming = false; player.position.set(0, TR.ground(0, 6), 6); target = null; snap = true; } };
@@ -266,6 +267,8 @@
       fwd.set(-Math.sin(yaw), 0, -Math.cos(yaw)); mv.set(0, 0, 0);
       if (keys.w || keys.arrowup) mv.add(fwd); if (keys.s || keys.arrowdown) mv.sub(fwd);
       if (keys.d || keys.arrowright) mv.add(new T.Vector3(-fwd.z, 0, fwd.x)); if (keys.a || keys.arrowleft) mv.sub(new T.Vector3(-fwd.z, 0, fwd.x));
+      const stick = W.stick, push = Math.hypot(stick.x, stick.y); // the on-screen analog stick (touch screens), relative to the camera like WASD
+      if (push) mv.addScaledVector(fwd, -stick.y).add(new T.Vector3(-fwd.z * stick.x, 0, fwd.x * stick.x));
       if (keys.q) yaw += dt * 2; if (keys.e) yaw -= dt * 2;
       if (keys.r) pitch = Math.min(1.45, pitch + dt * 1.2); if (keys.f) pitch = Math.max(-0.35, pitch - dt * 1.2);
       if (now < W.frozenUntil) { mv.set(0, 0, 0); target = null; } // stunned
@@ -273,7 +276,7 @@
       else if (target) { mv.set(target.x - p.x, 0, target.z - p.z); if (mv.length() < (sailing ? 4 : 0.4)) target = null; }
       if (sailing) sail(dt, now);
       else if (mv.lengthSq() > 0.0001) {
-        mv.normalize().multiplyScalar((swimming ? 5 : 9) * dt);
+        mv.normalize().multiplyScalar((swimming ? 5 : 9) * dt * (push ? Math.min(1, push) : 1)); // a half-pushed stick walks slower
         const x0 = p.x, z0 = p.z;
         p.x = clampW(p.x + mv.x); p.z = clampW(p.z + mv.z);
         TR.collide(p, 0.5); // trees, rocks, houses and fountains are solid; water is walkable
