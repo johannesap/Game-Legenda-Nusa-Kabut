@@ -337,9 +337,14 @@
       cam.lookAt(s.look);
     }
     else {
-      const gy = p.y - jumpH, horiz = dist * Math.cos(pitch), cx = p.x + Math.sin(yaw) * horiz, cz = p.z + Math.cos(yaw) * horiz;
-      // keep the camera above the ground; a low pitch then looks up at the hero and sky
-      cam.position.lerp(new T.Vector3(cx, Math.max(gy + dist * Math.sin(pitch), TR.ground(cx, cz) + 0.8), cz), snap ? 1 : 0.12); snap = false;
+      const gy = p.y - jumpH; let horiz = dist * Math.cos(pitch);
+      // on the sky deck the camera stays inside the castle wall: pulled in along its own line toward the hero
+      if (TR.skyAt(p.x, p.z)) { const S = TR.SKY, ox = p.x - S.x, oz = p.z - S.z, b = ox * Math.sin(yaw) + oz * Math.cos(yaw); horiz = Math.max(2, Math.min(horiz, -b + Math.sqrt(Math.max(0, b * b - ox * ox - oz * oz + (S.r - 4) ** 2)))); }
+      const cx = p.x + Math.sin(yaw) * horiz, cz = p.z + Math.cos(yaw) * horiz;
+      // keep the camera above the ground; a low pitch then looks up at the hero and sky. Across the edge of the sky deck or the
+      // dungeon hall, the floor is the hero's own: never under the deck, nor lifted onto it from the land below
+      const raised = (x, z) => TR.skyAt(x, z) || TR.dungeonAt(x, z), onR = raised(p.x, p.z), fl = onR === raised(cx, cz) ? TR.ground(cx, cz) : onR ? gy : TR.height(cx, cz);
+      cam.position.lerp(new T.Vector3(cx, Math.max(gy + dist * Math.sin(pitch), fl + 0.8), cz), snap ? 1 : 0.12); snap = false;
       const L = W.live; if (L && L.shakeUntil > now) { const k = L.shakeAmp * (L.shakeUntil - now) / 300; cam.position.x += (Math.random() - 0.5) * k; cam.position.y += (Math.random() - 0.5) * k; }
       cam.lookAt(p.x, gy + 1.5, p.z);
     }

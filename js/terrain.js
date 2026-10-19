@@ -153,6 +153,9 @@
     if (dm < 160) h += 26 * smooth(160, 60, dm); // the demon castle's mountain
     h += ringW(x, z) * (24 + 6 * Math.sin(x * 0.05 + z * 0.04));
     h -= 10 * smooth(1, 0.35, lakeD(x, z));
+    // a dry bank where the middle's water would touch the outer ring's lava or ice (r 172), and the lava a realm's water (r 490)
+    const sc = sectorOf(x, z), bank = sc === 'magma' || sc === 'ice' ? Math.max(smooth(154, 164, r) * smooth(190, 180, r), sc === 'magma' ? smooth(474, 484, r) * smooth(506, 496, r) : 0) : 0;
+    if (bank > 0) h += (Math.max(h, 0.6) - h) * bank;
     const o3 = smooth(800, 850, r); // the frontier lands
     if (o3 > 0) h = h * (1 - o3) + (h * 0.2 + FRONT_H[frontierOf(x, z)](x, z)) * o3 + frontRidge(x, z) * (15 + 5 * Math.sin(x * 0.03 + z * 0.04));
     h += edgeW(x, z) * (26 + 6 * Math.sin(x * 0.05 + z * 0.04)); // the old edge of the world, now with passes
