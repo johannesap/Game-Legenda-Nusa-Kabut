@@ -1,0 +1,27 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Cek data game</title>
+<!-- Open this page (e.g. http://localhost:8765/check.html) after changing data.js or i18n.js: every reference between
+     shops, drops, monsters, lairs, skills and evolutions must point at something that exists. -->
+<pre id="out">…</pre>
+<script src="js/i18n.js"></script>
+<script src="js/data.js"></script>
+<script>
+  const bad = [], kinds = [...new Set(Object.values(CLASSES).map(c => c.weapon))];
+  const itemOk = id => /^weapon\d+$/.test(id) ? kinds.every(k => ITEMS[k + id.slice(6)]) : !!ITEMS[id]; // weaponN means each class's own weapon N
+  TOWNS.forEach(tw => {
+    tw.goods.forEach(id => { if (!itemOk(id)) bad.push('toko ' + tw.id + ': barang ' + id); if (GOODS[id] == null) bad.push('GOODS tanpa level: ' + id); });
+    tw.books.forEach(id => { if (!SKILLS[id] || !LEARN[id]) bad.push('toko ' + tw.id + ': buku skill ' + id); });
+  });
+  Object.entries(ENEMIES).forEach(([k, e]) => (e.drops || []).forEach(([id]) => { if (!itemOk(id)) bad.push('drop ' + k + ': ' + id); }));
+  Object.entries(BIOMES).forEach(([b, v]) => v.spawn.forEach(k => { if (!ENEMIES[k]) bad.push('wilayah ' + b + ': monster ' + k); }));
+  LAIRS.forEach(l => { if (!ENEMIES[l.type]) bad.push('sarang: ' + l.type); if (!BIOMES[l.region]) bad.push('sarang ' + l.type + ': wilayah ' + l.region); });
+  Object.entries(CLASSES).forEach(([c, v]) => (v.skills || []).forEach(s => { const id = Array.isArray(s) ? s[0] : s; if (!SKILLS[id]) bad.push('kelas ' + c + ': skill ' + id); }));
+  Object.entries(EVOS).forEach(([k, e]) => { if (!EVOS[e.from] && !CLASSES[e.from]) bad.push('evolusi ' + k + ': asal ' + e.from); });
+  for (let l = 1, last = 0; l < MAX_LVL; l++) { const n = xpNeed(l); if (!(n >= last && n > 0)) bad.push('xpNeed(' + l + ') = ' + n); last = n; }
+  const keys = (o, p = '') => Object.entries(o).flatMap(([k, v]) => v && typeof v === 'object' && !Array.isArray(v) ? keys(v, p + k + '.') : [p + k]);
+  const id = new Set(keys(I18N.id)), en = new Set(keys(I18N.en));
+  id.forEach(k => { if (!en.has(k)) bad.push('teks hanya bahasa Indonesia: ' + k); }); en.forEach(k => { if (!id.has(k)) bad.push('teks hanya bahasa Inggris: ' + k); });
+  document.getElementById('out').textContent = bad.length ? 'GAGAL (' + bad.length + ')\n' + bad.join('\n') : 'OK: semua referensi data dan teks lengkap.';
+  document.title = bad.length ? 'GAGAL' : 'OK';
+</script>

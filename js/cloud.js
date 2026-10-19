@@ -55,6 +55,7 @@
   C.flush = flush;
 
   C.pushSave = S => { if (C.db) write('data/users/' + C.uid + '/save', { state: S, updated: S.updated, dev: C.dev }); };
+  C.wipe = () => C.db ? C.db.doc('data/users/' + C.uid + '/save').set({ state: { v: 0 }, updated: Date.now(), dev: C.dev }).catch(() => { }) : Promise.resolve(); // awaited, so a reload can't cut it off
   C.pushBoard = entry => { if (C.db) write('lb/' + C.uid, entry); };
 
   // feeds: listeners register any time; the two subscriptions open once, after init finds a db

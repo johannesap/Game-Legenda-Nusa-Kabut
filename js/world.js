@@ -85,7 +85,6 @@
     prT = prN = 0;
     if (Math.abs(next - pr) > 0.01) { pr = next; renderer.setPixelRatio(pr); resize(); }
   }
-  W.renderScale = () => pr;
   function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); stageView(); }
 
   // sun, moon and stars ride with the camera so they always sit on the sky dome
@@ -434,7 +433,7 @@
     for (const n of npcs) if (n.role !== 'guard' && now > n.said && hyp(p.x - n.m.position.x, p.z - n.m.position.z) < 3.2) { talk(n, now); break; }
     const sp = TR.springs.find(s => hyp(p.x - s.x, p.z - s.z) < 4.6) || null;
     if (sp && sp !== inSpring && W.onSpring) W.onSpring(sp.town); inSpring = sp;
-    if (!jumpH && TR.liquid(p.x, p.z) === 'lava' && TR.height(p.x, p.z) < TR.LAVA && W.onBurn) W.onBurn(dt);
+    if (!jumpH && p.y - (mount ? mount.seat : 0) < TR.LAVA + 0.5 && TR.liquid(p.x, p.z) === 'lava' && TR.height(p.x, p.z) < TR.LAVA && W.onBurn) W.onBurn(dt); // not flying over it or on an island above it
     // announce a new region (water counts as the region around it)
     if ((areaT -= dt) < 0) {
       areaT = 0.5;
@@ -582,10 +581,8 @@
   }
 
   // ---------- battle stage: heroes in a row facing the foe, camera from the side ----------
-  // allies: [{key, mesh}] of other players' avatars joining this fight
-  W.beginStage = function (foe, temp, allies) {
+  W.beginStage = function (foe, temp) {
     if (mount) { const q = player.position; unmount(); q.y = flyFloor(q.x, q.z, q.y); isle = isleAt(q.x, q.z, q.y); } // fights happen on foot
-    allies = allies || [];
     const p = player.position, dir = new T.Vector3(foe.position.x - p.x, 0, foe.position.z - p.z);
     if (dir.lengthSq() < 0.01) dir.set(Math.sin(player.rotation.y), 0, Math.cos(player.rotation.y));
     dir.normalize();
@@ -603,13 +600,7 @@
       me: { mesh: player, home: p.clone(), tall: 2.5 * player.scale.y, side: 'hero' },
       foe: { mesh: foe, home: foe.position.clone(), tall: Math.max(1.4, size.y), side: 'foe' }
     };
-    allies.forEach((a, i) => {
-      const x = p.x - dir.x * 2.2 * (i + 1) + side.x * (i % 2 ? -1.2 : 1.2), z = p.z - dir.z * 2.2 * (i + 1) + side.z * (i % 2 ? -1.2 : 1.2);
-      const ast = W.stance(x, z); a.mesh.position.set(x, ast.swim ? ast.y - 1.75 : ast.y, z); a.mesh.rotation.set(0, face, 0);
-      if (a.mesh.userData.legs) animateWalk(a.mesh, false, 0);
-      actors[a.key] = { mesh: a.mesh, home: a.mesh.position.clone(), tall: 2.5 * a.mesh.scale.y, side: 'hero' };
-    });
-    const span = gap + 2.2 * allies.length, mid = p.clone().addScaledVector(dir, (gap - 2.2 * allies.length) / 2);
+    const span = gap, mid = p.clone().addScaledVector(dir, gap / 2);
     // default view: three-quarters from behind the hero's shoulder, both sides in frame; the player can orbit from here
     const view = side.clone().multiplyScalar(Math.cos(0.65)).addScaledVector(dir, -Math.sin(0.65));
     const orbit = { yaw: Math.atan2(view.x, view.z), pitch: 0.38, dist: span * 1.15 + 6 };

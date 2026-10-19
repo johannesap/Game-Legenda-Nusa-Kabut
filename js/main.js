@@ -147,8 +147,8 @@
     return { key: 'me', ctrl: 'me', side: 'hero', name: S.hero.name, lvl: S.lvl, cls: S.cls, ...st, rating: S.rating,
       hp: full ? st.maxHp : Math.max(1, Math.round(Math.min(S.hp, st.maxHp))), mp: full ? st.maxMp : Math.min(S.mp, st.maxMp), skills: heroSkills(S).filter(s => s.ok).map(s => s.id) };
   };
-  G.monsterFighter = function (type, party) {
-    const d = ENEMIES[type], hp = Math.round(d.hp * (1 + 0.6 * ((party || 1) - 1))); // tougher for a group
+  G.monsterFighter = function (type) {
+    const d = ENEMIES[type], hp = d.hp;
     return { key: 'foe', ctrl: 'ai', side: 'foe', type, name: L(d.name), lvl: d.lvl, hp, maxHp: hp, atk: d.atk, def: d.def, agi: d.agi, poisonChance: d.poison, stunChance: d.stun, boss: d.boss, special: d.special };
   };
   G.monsterResult = function (type, res, info, e) {
@@ -183,11 +183,6 @@
     questCheck(); G.save(arena); UI.hud(); Net.busy(false);
   };
   const byAgi = (a, b) => b.agi - a.agi;
-  G.soloBattle = function (e) {
-    World.beginStage(e.mesh, false);
-    const me = G.heroFighter(), foe = G.monsterFighter(e.type);
-    Battle.start({ fighters: foe.agi > me.agi + 2 ? [foe, me] : [me, foe], onResolve: (res, info) => G.monsterResult(e.type, res, info, e), onEnd: res => G.afterBattle(res) });
-  };
   // a real-time fight in the world ended (action.js); rewards are already counted by monsterResult
   G.afterRealtime = function (res) {
     const S = G.S;
@@ -299,14 +294,14 @@
       const mine = heroStats(S), k = 0.9 + Math.random() * 0.15, ids = Object.keys(CLASSES), cls = ids[Math.random() * ids.length | 0];
       opp = { name: t('ghostBot'), lvl: S.lvl, rating: S.rating, cls, build: { maxHp: Math.round(mine.maxHp * k), maxMp: mine.maxMp, atk: Math.round(mine.atk * k), mag: Math.round(mine.mag * k), def: mine.def, agi: mine.agi, crit: mine.crit, eva: mine.eva, skills: CLASSES[cls].skills.map(s => s[0]) } };
     }
-    const b = opp.build, name = String(opp.name).slice(0, 16);
+    // other players' rows are checked like a duel opponent's: numbers clamped, unknown classes, skills and looks dropped
+    const b = opp.build, ghost = Net.fighterFrom({ ...b, n: opp.name, l: opp.lvl, c: opp.cls, hp: b.maxHp, mp: b.maxMp, sk: b.skills, r: opp.rating }, 'foe', 'ai', 'foe');
     UI.close(); World.paused = true; Net.busy(true);
     const ghostLook = { skin: '#9aa3b2', hair: '#2b2f3a', hairStyle: 0, outfit: '#3a3550', cape: '#5b2a6e', capeOn: true, hat: 3, eyes: '#ff5a4a', height: 1, build: 1 };
-    World.beginStage(World.buildHero(opp.look && opp.look.skin ? opp.look : ghostLook, CLASSES[opp.cls] ? opp.cls : 'knight'), true);
-    UI.toast(t('matchFound', { name, r: opp.rating }));
-    const ghost = { key: 'foe', ctrl: 'ai', side: 'foe', name, lvl: opp.lvl, cls: opp.cls, ...b, hp: b.maxHp, mp: b.maxMp, skills: b.skills || [] };
+    World.beginStage(World.buildHero(opp.look && opp.look.skin ? Net.cleanLook(opp.look) : ghostLook, ghost.cls), true);
+    UI.toast(t('matchFound', { name: ghost.name, r: ghost.rating }));
     Battle.start({ arena: true, fighters: [G.heroFighter(true), ghost].sort(byAgi),
-      onResolve: (res, info) => G.arenaResult(res === 'win', opp.rating, name, info), onEnd: res => G.afterBattle(res, true) });
+      onResolve: (res, info) => G.arenaResult(res === 'win', ghost.rating, ghost.name, info), onEnd: res => G.afterBattle(res, true) });
   };
 
   // ---------- boot ----------
@@ -329,7 +324,8 @@
     start(fresh(name, cls, look));
     G.notify(t('nDaily'));
   };
-  G.reset = function () { Cloud.clearLocal(); if (Cloud.db) Cloud.pushSave({ v: 0, updated: Date.now() }); location.reload(); };
+  // G.S goes first: the pagehide save on the way out would otherwise write the hero straight back
+  G.reset = async function () { G.S = null; clearTimeout(cloudTimer); Cloud.clearLocal(); await Cloud.wipe(); location.reload(); };
 
   function adoptRemote(state) {
     if (!state || state.v !== 1) return;

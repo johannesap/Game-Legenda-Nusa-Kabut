@@ -9,7 +9,7 @@
   const TR = window.Terrain = { HALF: 1240, WATER: -1.6, LAVA: -0.9, springs: [], warps: [], gears: [], smoke: [], barriers: [] };
   // the realms' great castles that are not settlements: the dragon's on the realm's highest peak, the demon lord's on the
   // mountain at the back of its realm (the bosses in data.js LAIRS wait at the same points). r: the flattened plateau
-  const KEEPS = TR.KEEPS = { dragon: { x: -442, z: 442, r: 54, R: 30 }, demon: { x: 0, z: 668, r: 74, R: 42 }, dgate: { x: 40, z: -70, r: 16, R: 5 } }; // dgate: the dungeon's gate near the village
+  const KEEPS = { dragon: { x: -442, z: 442, r: 54, R: 30 }, demon: { x: 0, z: 668, r: 74, R: 42 }, dgate: { x: 40, z: -70, r: 16, R: 5 } }; // dgate: the dungeon's gate near the village
   // the dungeon hall, out of reach past the world's edge: inside its walls you stand on its floor
   const DUN = TR.DUNGEON = { x: 1150, z: 1150, w: 64, d: 88, y: 140 };
   TR.dungeonAt = (x, z) => Math.abs(x - DUN.x) < DUN.w / 2 && Math.abs(z - DUN.z) < DUN.d / 2;
@@ -83,7 +83,7 @@
     for (let i = 0; i < p.count; i++) { v.set(p.getX(i), p.getY(i), p.getZ(i)); const k = 1 + 0.1 * Math.sin(v.x * 5.1) * Math.sin(v.y * 4.3 + v.z * 3.7); p.setXYZ(i, v.x * k, v.y * k, v.z * k); v.normalize(); nm.setXYZ(i, v.x, v.y, v.z); }
     return g;
   };
-  const S2 = Math.SQRT1_2, LAKE = TR.LAKE = { x: -78, z: 78, a: 45, b: 120, ux: -S2, uz: S2, vx: -S2, vz: -S2 }, VOLCANO = TR.VOLCANO = { x: -380, z: 20 };
+  const S2 = Math.SQRT1_2, LAKE = { x: -78, z: 78, a: 45, b: 120, ux: -S2, uz: S2, vx: -S2, vz: -S2 }, VOLCANO = TR.VOLCANO = { x: -380, z: 20 };
   // 1 on the shore of the long lake, below 1 inside (half-widths: 45 m across, 120 m along)
   const lakeD = (x, z) => { const dx = x - LAKE.x, dz = z - LAKE.z; return hyp((dx * LAKE.ux + dz * LAKE.uz) / LAKE.a, (dx * LAKE.vx + dz * LAKE.vz) / LAKE.b); };
   // rivers, source to mouth: channels cut to a bed under the water line so the world's water fills them. They only cross
@@ -117,7 +117,7 @@
   TR.PLACES = []; // doors you can enter: guild hall, castle
   TR.LAIRS = []; TR.TOWERS = []; TR.mills = [];
   // ---- the eight realms beyond the mountain ring (r ≈ 455–525), one per 45° slice starting east ----
-  const realmOf = TR.realmOf = (x, z) => REALMS[(Math.round(Math.atan2(z, x) / (P / 4)) + 8) % 8];
+  const realmOf = (x, z) => REALMS[(Math.round(Math.atan2(z, x) / (P / 4)) + 8) % 8];
   const angDist = (a, step, off) => { const k = (((a - off) % step) + step) % step; return Math.min(k, step - k); };
   // the ring of mountains, with a pass into each realm
   const ringW = (x, z) => { const r = hyp(x, z); if (r < 430 || r > 528) return 0; return smooth(430, 462, r) * smooth(528, 494, r) * (1 - smooth(0.15, 0.05, angDist(Math.atan2(z, x), P / 4, 0))); };
@@ -135,7 +135,7 @@
   };
   const REALM_LIQ = { dragon: 'lava', demon: 'lava', angel: 'cloud' };
   // ---- the frontier beyond the old world edge (r ≈ 800–1180): five lands, one per 72° slice starting east ----
-  const frontierOf = TR.frontierOf = (x, z) => FRONTIER[(Math.round(Math.atan2(z, x) / (P * 2 / 5)) + 5) % 5];
+  const frontierOf = (x, z) => FRONTIER[(Math.round(Math.atan2(z, x) / (P * 2 / 5)) + 5) % 5];
   // ridges between neighbouring frontier lands, with low passes
   const frontRidge = (x, z) => { const r = hyp(x, z); if (r < 810) return 0; return smooth(0.09, 0.02, angDist(Math.atan2(z, x), P * 2 / 5, P / 5)) * smooth(810, 870, r) * (0.35 + 0.65 * Math.abs(Math.sin(r * 0.015))); };
   // the old world edge: a mountain ring between the realms and the frontier, with a pass into each land
@@ -296,7 +296,7 @@
       for (let j = 0; j < 3; j++) col[i * 3 + j] += ([COL.rock.r, COL.rock.g, COL.rock.b][j] * 0.9 - col[i * 3 + j]) * k;
     }
     geo.setAttribute('color', new T.BufferAttribute(col, 3));
-    const terrain = new T.Mesh(geo, new T.MeshLambertMaterial({ vertexColors: true, map: tex('grain', 300, 300) })); terrain.userData.flat = true; scene.add(terrain);
+    const terrain = new T.Mesh(geo, new T.MeshLambertMaterial({ vertexColors: true, map: tex('grain', 300, 300) })); terrain.userData.flat = true; scene.add(terrain); TR.groundMesh = terrain; // map.js paints the world map from its colours
     // liquids: water everywhere, lava and ice wedges over the outer magma and tundra regions
     const flat = (g, m, y) => { g.rotateX(-P / 2); const o = new T.Mesh(g, m); o.position.y = y; o.userData.flat = true; scene.add(o); return o; };
     TR.waveTex = tex('waves', 470, 470); // water: glossy, with drifting ripples that catch the sun

@@ -1,10 +1,7 @@
 // Minimap in the HUD (turns with the camera, letters on the rim act as a compass) and the full world map
-// panel (north up). The ground picture is baked once from Terrain at 4 m per pixel; markers redraw at ~5 fps.
+// panel (north up). The ground picture is baked once from the terrain mesh's own colours; markers redraw at ~5 fps.
 (function () {
-  const TR = Terrain, H = TR.HALF, STEP = 4, VIEW = 110, $ = id => document.getElementById(id);
-  const COL = { meadow: 0x78a862, forest: 0x4f7f45, mountain: 0x8a8478, desert: 0xd9b77a, ice: 0xe4edf2, magma: 0x3a3030, death: 0x4b4652, town: 0xd8c8a0, snow: 0xf2f6f8,
-    human: 0x8fb860, beast: 0xc8b070, elf: 0x5fbf8a, giant: 0x5a8a4a, dwarf: 0x7a6a5a, angel: 0xeef0f4, dragon: 0x3a2a26, demon: 0x4a1c1c,
-    storm: 0x6a8a5a, glass: 0xece0c4, marsh: 0x46583a, crystal: 0x8a7ab8, void: 0x2e2038, diamond: 0xd6eef8 };
+  const TR = Terrain, H = TR.HALF, VIEW = 110, $ = id => document.getElementById(id);
   const LIQ = { water: 0x3f86b8, lava: 0xff5a1a, ice: 0xa8d0e4, cloud: 0xf4f6fa };
   // where each region's name sits on the full map (checked against Terrain.biomeAt)
   const LABELS = [['forest', -90, -80], ['meadow', 95, 75], ['mountain', 185, -185], ['desert', 290, -100], ['ice', -60, -230], ['magma', -290, 110], ['death', 0, 300],
@@ -13,20 +10,17 @@
 
   let base = null, full = null, view = null; // view: the full map's centre and half-width in metres (zoom and pan)
   const MAXMARKS = 12, marks = () => Game.S ? (Game.S.marks = Game.S.marks || []) : [];
+  // the ground picture: one pixel per terrain-mesh vertex, in the colours worked out while loading (rows run north to south);
+  // liquids painted over, light from the west
   function bake() {
-    const n = 2 * H / STEP, cv = document.createElement('canvas'); cv.width = cv.height = n;
+    const g = TR.groundMesh.geometry, pos = g.attributes.position, col = g.attributes.color, n = Math.round(Math.sqrt(pos.count)), cv = document.createElement('canvas'); cv.width = cv.height = n;
     const c = cv.getContext('2d'), img = c.createImageData(n, n), a = img.data, V = TR.VOLCANO;
-    for (let j = 0, o = 0; j < n; j++) {
-      let prev = null;
-      for (let i = 0; i < n; i++, o += 4) {
-        const x = -H + (i + 0.5) * STEP, z = -H + (j + 0.5) * STEP, h = TR.height(x, z), lq = TR.liquid(x, z);
-        let v, f = 1;
-        if (h < TR.liquidY(lq)) v = LIQ[lq];
-        else if (Math.hypot(x - V.x, z - V.z) < 9) v = LIQ.lava; // volcano crater
-        else { const b = TR.biomeAt(x, z); v = h > 14 && b !== 'town' ? COL.snow : COL[b]; f = Math.min(1.25, Math.max(0.75, 1 + (h - (prev == null ? h : prev)) * 0.08)); } // light from the west
-        prev = h;
-        a[o] = (v >> 16) * f; a[o + 1] = (v >> 8 & 255) * f; a[o + 2] = (v & 255) * f; a[o + 3] = 255;
-      }
+    for (let i = 0, o = 0; i < pos.count; i++, o += 4) {
+      const x = pos.getX(i), z = pos.getZ(i), h = pos.getY(i), lq = TR.liquid(x, z);
+      const v = Math.hypot(x - V.x, z - V.z) < 9 ? LIQ.lava : h < TR.liquidY(lq) ? LIQ[lq] : null; // the volcano's crater, then water, lava, ice
+      if (v != null) { a[o] = v >> 16; a[o + 1] = v >> 8 & 255; a[o + 2] = v & 255; }
+      else { const f = 255 * Math.min(1.25, Math.max(0.75, 1 + (h - (i % n ? pos.getY(i - 1) : h)) * 0.08)); a[o] = col.getX(i) * f; a[o + 1] = col.getY(i) * f; a[o + 2] = col.getZ(i) * f; }
+      a[o + 3] = 255;
     }
     c.putImageData(img, 0, 0);
     return cv;
