@@ -172,7 +172,8 @@
   TR.height = (x, z) => {
     let h = rawHeight(x, z);
     for (const tw of FLATS) {
-      const f = smooth(tw.r, tw.r * 0.6, hyp(x - tw.x, z - tw.z));
+      // walled towns and castles: the ground follows the castle's level out past the wall, then ramps back down (or up)
+      const d = hyp(x - tw.x, z - tw.z), f = tw.walls || tw.build || tw.city ? smooth(tw.r * 1.25 + 14, tw.r + 2, d) : smooth(tw.r, tw.r * 0.6, d);
       if (f > 0) { if (tw.base == null) tw.base = Math.max(0.3, rawHeight(tw.x, tw.z)); h = h * (1 - f) + tw.base * f; }
     }
     return h;
