@@ -312,7 +312,7 @@
     const iceMat = M().mat(0xcfe8f2, { transparent: true, opacity: 0.92 }), voidMat = new T.MeshBasicMaterial({ color: 0x7a2aef }); // the void pits glow and burn like lava
     FRONTIER.forEach((fl, k) => { const lq = FRONT_LIQ[fl]; if (lq) flat(new T.RingGeometry(800, 1150, 30, 1, -(k * P * 2 / 5) - P / 5, P * 2 / 5), lq === 'lava' ? voidMat : iceMat, TR.liquidY(lq)); });
     const crater = flat(new T.CircleGeometry(9, 20), TR.lavaMat, TR.height(VOLCANO.x, VOLCANO.z) + 0.4); crater.position.x = VOLCANO.x; crater.position.z = VOLCANO.z;
-    scenery(scene, q); towns(scene); realmCastles(scene); docks(scene); lairMarks(scene); barriers(scene); dungeonGate(scene); dungeonHall(scene); diamondIsle(scene);
+    scenery(scene, q); towns(scene); realmCastles(scene); docks(scene); lairMarks(scene); barriers(scene); dungeonGate(scene); dungeonHall(scene); diamondIsle(scene); skyIsles(scene, q);
     TR.TOWERS.forEach(tw => { tower(scene, tw.x, tw.z, TR.height(tw.x, tw.z), 2.6, 14, 0x9a948a, 0x8a2a1a); flag(scene, tw.x, TR.height(tw.x, tw.z) + 19.5, tw.z); });
     return { terrain, chests: chests(scene) };
   };
@@ -797,6 +797,34 @@
     REALMS.forEach((rl, i) => { const a = i * P / 4, nb = REALMS[(i + 1) % 8]; arc(492, a - P / 8, a + P / 8, AREA_LV[rl]); if (AREA_LV[nb] !== AREA_LV[rl]) radial(a + P / 8, 492, 800, Math.max(AREA_LV[rl], AREA_LV[nb])); });
     FRONTIER.forEach((fl, k) => { const a = k * P * 2 / 5, nb = FRONTIER[(k + 1) % 5]; arc(800, a - P / 5, a + P / 5, AREA_LV[fl]); const b = a + P / 5; radial(b, 800, Math.min(1400, (TR.HALF - 15) / Math.max(Math.abs(Math.cos(b)), Math.abs(Math.sin(b)))), Math.max(AREA_LV[fl], AREA_LV[nb])); });
     wall(new T.CylinderGeometry(ISLE.r + 50, ISLE.r + 50, 80, 72, 1, true), ISLE.x, ISLE.z, 0, AREA_LV.diamond);
+  }
+  // floating islands high over the land: grassy tops on upturned crags with trees or crystals, some pouring a waterfall that
+  // thins to mist in mid-air. They never move, so each kind of part is merged into one mesh
+  function skyIsles(scene, q) {
+    const R = rng(41), { mat, add } = M(), parts = { rock: [], grass: [], trunk: [], crown: [], crys: [] }, spots = [];
+    const cv = document.createElement('canvas'), c = cv.getContext('2d'); cv.width = 32; cv.height = 128; // falling streaks, fading out downward
+    for (let x = 0; x < 32; x++) { const v = 205 + R() * 50 | 0, g = c.createLinearGradient(0, 0, 0, 128); c.globalAlpha = Math.min(1, 0.25 + Math.min(x, 31 - x) / 5);
+      g.addColorStop(0, 'rgba(' + v + ',' + v + ',255,0.9)'); g.addColorStop(0.5, 'rgba(' + v + ',' + v + ',255,0.45)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(x, 0, 1, 128); }
+    const fall = new T.MeshBasicMaterial({ map: new T.CanvasTexture(cv), color: 0xd8f2ff, transparent: true, depthWrite: false, side: T.DoubleSide, fog: false });
+    for (let i = 0; spots.length < (q < 1 ? 10 : 18) && i < 600; i++) {
+      const a = R() * P * 2, d = 110 + R() * 1000, x = Math.cos(a) * d, z = Math.sin(a) * d, r = 7 + R() * 11;
+      if (spots.some(s => hyp(s[0] - x, s[1] - z) < 170) || TR.SKY && hyp(x - TR.SKY.x, z - TR.SKY.z) < 190) continue; // spread out, clear of the sky castle
+      spots.push([x, z]);
+      const y = Math.max(0, TR.height(x, z)) + 70 + R() * 45;
+      parts.grass.push([new T.CylinderGeometry(r, r * 0.9, 2.4, 12), x, y, z]);
+      parts.rock.push([new T.ConeGeometry(r * 0.92, r * 1.6, 9).rotateX(P), x, y - 1.2 - r * 0.8, z]);
+      for (let k = 0; k < 2; k++) { const b = R() * P * 2, rr = r * (0.4 + R() * 0.3), s = 1.5 + R() * 2; parts.rock.push([new T.ConeGeometry(s, s * 3, 7).rotateX(P), x + Math.cos(b) * rr, y - 2 - s * 1.5 - r * 0.3, z + Math.sin(b) * rr]); }
+      const crystal = R() < 0.3;
+      for (let k = 0, n = 1 + Math.floor(r / 5); k < n; k++) {
+        const b = R() * P * 2, rr = R() * r * 0.65, tx = x + Math.cos(b) * rr, tz = z + Math.sin(b) * rr;
+        if (crystal) parts.crys.push([new T.OctahedronGeometry(1 + R()).scale(1, 2, 1), tx, y + 3, tz]);
+        else { parts.trunk.push([new T.CylinderGeometry(0.3, 0.45, 3, 7), tx, y + 2.6, tz]); parts.crown.push([blob(1.6 + R() * 0.8), tx, y + 5, tz]); }
+      }
+      if (R() < 0.55) { const b = R() * P * 2, w = add(scene, new T.Mesh(new T.PlaneGeometry(2.6, 60), fall), x + Math.cos(b) * (r - 0.3), y - 29.2, z + Math.sin(b) * (r - 0.3)); w.rotation.y = P / 2 - b; w.userData.flat = true; } // over the rim
+    }
+    [['rock', 0x8a7f74], ['grass', 0x5f9f48], ['trunk', 0x6b4a2a], ['crown', 0x4f8f3a], ['crys', 0x9fe8ff]].forEach(([k, col]) => {
+      if (parts[k].length) add(scene, new T.Mesh(merge(parts[k]), k === 'crys' ? mat(col, { emissive: 0x2a6a8a, transparent: true, opacity: 0.9, fog: false }) : mat(col, { flatShading: true, fog: false }))); // the haze would wash them out to pale ghosts
+    });
   }
   // the Diamond Island's landmark: a great diamond standing on its point on the hilltop, seen from the far shore
   function diamondIsle(scene) {

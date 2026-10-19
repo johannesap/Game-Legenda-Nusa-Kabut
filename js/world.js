@@ -105,7 +105,18 @@
     for (let i = 0; i < n; i++) { const a = R() * P * 2, y = R() * 0.95 + 0.05, r = Math.sqrt(1 - y * y); pts[i * 3] = Math.cos(a) * r * 450; pts[i * 3 + 1] = y * 450; pts[i * 3 + 2] = Math.sin(a) * r * 450; }
     const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pts, 3));
     const stars = new T.Points(g, new T.PointsMaterial({ color: 0xffffff, size: 1.8, sizeAttenuation: false, transparent: true, fog: false, depthWrite: false }));
-    [sunM, moon, stars].forEach(o => { o.renderOrder = -1; o.scale.setScalar(skyK); scene.add(o); });
+    // a second, ringed moon trails the first
+    const moon2 = new T.Mesh(new T.SphereGeometry(5.5, 16, 10), basic(0xf2b8dc)), ring = new T.Mesh(new T.RingGeometry(7.5, 11, 36), basic(0xf8dcef, 0.55));
+    ring.material.side = T.DoubleSide; ring.rotation.set(1.15, 0.3, 0); moon2.add(ring);
+    // aurora: shimmering curtains low over the northern sky at night (a strip bent round the dome)
+    const ag = new T.PlaneGeometry(1, 1, 72, 1), ap = ag.attributes.position, uv = ag.attributes.uv;
+    for (let i = 0; i < ap.count; i++) { const u = uv.getX(i), v = uv.getY(i), a = -P / 2 + (u - 0.5) * 1.9, rr = 400 + 30 * Math.sin(u * 11); ap.setXYZ(i, Math.cos(a) * rr, 105 + v * 120 + 22 * Math.sin(u * 7.3), Math.sin(a) * rr); }
+    const aurora = new T.Mesh(ag, new T.ShaderMaterial({ transparent: true, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide, uniforms: { time: { value: 0 }, k: { value: 0 } },
+      vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform float time; uniform float k; varying vec2 vUv; void main() { float band = 0.55 + 0.45 * sin(vUv.x * 38.0 + time * 0.5 + 2.0 * sin(vUv.x * 9.0 - time * 0.25));'
+        + ' float fade = smoothstep(0.0, 0.25, vUv.y) * (1.0 - smoothstep(0.5, 1.0, vUv.y)) * smoothstep(0.0, 0.12, vUv.x) * (1.0 - smoothstep(0.88, 1.0, vUv.x));'
+        + ' gl_FragColor = vec4(mix(vec3(0.15, 1.0, 0.55), vec3(0.65, 0.3, 1.0), vUv.y) * band * fade * k, 1.0); }' }));
+    [sunM, moon, stars, moon2, aurora].forEach(o => { o.renderOrder = -1; o.scale.setScalar(skyK); scene.add(o); });
     // clouds: puffy clusters drifting with the wind, wrapped around the player; lit by the sun so they color at dusk
     const cn = lowQ ? 16 : 30, clouds = [];
     const cloudMesh = new T.InstancedMesh(new T.IcosahedronGeometry(1, 2), new T.MeshLambertMaterial({ color: 0xffffff, fog: false, transparent: true, opacity: 0.9 }), cn * 5);
@@ -130,7 +141,17 @@
       }
       flocks.push(fl);
     }
-    return { dome, deep: new T.Color(0x2f62b0), ldir: new T.Vector3(), clouds, cloudMesh, flocks, sun: sunM, moon, stars, dir: new T.Vector3(), col: new T.Color(), warm: new T.Color(0xfff2d8), dusk: new T.Color(0xffa060), cold: new T.Color(0x9fb4ff), white: new T.Color(0xffffff), navy: new T.Color(0x5060a0) };
+    // dragons wheel high over their lands (the volcano, the dragon realm, the plains) and a great wyvern over the middle
+    const dragons = [['firedrake', TR.VOLCANO.x, TR.VOLCANO.z, 70, 60, 4], ['wyvern', -442, 442, 120, 80, 4], ['firedrake', -442, 442, 65, 105, 4], ['wyvern', 520, 180, 150, 70, 4], ['wyvern', 0, 0, 180, 110, 6]]
+      .slice(0, lowQ ? 3 : 5).map(([type, x, z, r, h, k], i) => { const m = Models.enemy(type); m.scale.multiplyScalar(k); m.traverse(o => { if (o.material) o.material.fog = false; }); scene.add(m);
+        return { m, x, z, r, y: TR.height(x, z) + h, a: i * 1.9, w: (6 + i) / r * (i % 2 ? -1 : 1), wings: m.children.filter(c => c.isGroup) }; });
+    // fireflies drift round the hero after dusk: soft glowing dots that wrap as the hero walks on
+    const dc = document.createElement('canvas'), dx = dc.getContext('2d'), gr = dx.createRadialGradient(16, 16, 0, 16, 16, 16); dc.width = dc.height = 32;
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); dx.fillStyle = gr; dx.fillRect(0, 0, 32, 32);
+    const flies = Array.from({ length: lowQ ? 40 : 90 }, () => ({ x: (R() - 0.5) * 50, z: (R() - 0.5) * 50, h: 0.5 + R() * 3, ph: R() * 6.28 }));
+    const fireflies = new T.Points(new T.BufferGeometry(), new T.PointsMaterial({ color: 0xe4ff8a, size: 0.6, map: new T.CanvasTexture(dc), transparent: true, depthWrite: false, blending: T.AdditiveBlending }));
+    fireflies.geometry.setAttribute('position', new T.BufferAttribute(new Float32Array(flies.length * 3), 3)); fireflies.frustumCulled = false; scene.add(fireflies);
+    return { moon2, m2off: new T.Vector3(70, 36, 24).multiplyScalar(skyK), aurora, dragons, flies, fireflies, dome, deep: new T.Color(0x2f62b0), ldir: new T.Vector3(), clouds, cloudMesh, flocks, sun: sunM, moon, stars, dir: new T.Vector3(), col: new T.Color(), warm: new T.Color(0xfff2d8), dusk: new T.Color(0xffa060), cold: new T.Color(0x9fb4ff), white: new T.Color(0xffffff), navy: new T.Color(0x5060a0) };
   }
   const dummy = new T.Object3D();
   function updateLife(dt, now, day) {
@@ -156,6 +177,22 @@
         b.rotation.y = head; b.userData.wl.rotation.z = flap; b.userData.wr.rotation.z = -flap;
       }
     }
+    for (const d of s.dragons) { // gliding round, banked into the turn, wings beating slowly
+      d.a += d.w * dt; const sg = Math.sign(d.w), f = Math.sin(now / 240 + d.a * 5) * 0.6;
+      d.m.position.set(d.x + Math.cos(d.a) * d.r, d.y + Math.sin(now / 1800 + d.r) * 5, d.z + Math.sin(d.a) * d.r);
+      d.m.rotation.set(0, Math.atan2(-Math.sin(d.a) * sg, Math.cos(d.a) * sg), 0.35 * sg);
+      d.wings.forEach((wg, i) => { wg.rotation.z = (i ? 1 : -1) * (0.5 + f); });
+    }
+    const ff = s.fireflies; ff.visible = day < 0.45;
+    if (ff.visible) {
+      const a = ff.geometry.attributes.position; ff.material.opacity = Math.min(1, (0.45 - day) * 3);
+      s.flies.forEach((f, i) => {
+        while (f.x - p.x > 25) f.x -= 50; while (f.x - p.x < -25) f.x += 50; while (f.z - p.z > 25) f.z -= 50; while (f.z - p.z < -25) f.z += 50;
+        const t = now / 1000 + f.ph, x = f.x + Math.sin(t * 0.7) * 1.5, z = f.z + Math.cos(t * 0.6) * 1.5;
+        a.setXYZ(i, x, TR.ground(x, z) + f.h + Math.sin(t * 1.3) * 0.4, z);
+      });
+      a.needsUpdate = true;
+    }
     // ripples behind a swimmer
     for (let i = ripples.length - 1; i >= 0; i--) {
       const r = ripples[i], k = (now - r.t0) / 900;
@@ -178,6 +215,8 @@
     s.dome.position.copy(cam.position); scene.background.copy(bottom); scene.fog.color.copy(bottom);
     s.sun.position.copy(cam.position).addScaledVector(s.dir, 400 * skyK); s.sun.visible = s.dir.y > -0.15;
     s.moon.position.copy(cam.position).addScaledVector(s.dir, -400 * skyK); s.moon.lookAt(cam.position); s.moon.visible = s.dir.y < 0.15;
+    s.moon2.position.copy(s.moon.position).add(s.m2off); s.moon2.visible = s.moon.visible;
+    s.aurora.position.copy(cam.position); s.aurora.visible = day < 0.5; s.aurora.material.uniforms.k.value = Math.pow(Math.max(0, 1 - day * 2), 2) * 0.7; s.aurora.material.uniforms.time.value = now / 1000;
     s.stars.position.copy(cam.position); s.stars.rotation.y = ang * 0.15; s.stars.material.opacity = Math.pow(1 - day, 2); s.stars.visible = day < 0.97;
     s.ldir.copy(s.dir).multiplyScalar(day > 0.15 ? 1 : -1); s.ldir.y *= 1.8; s.ldir.normalize(); // light stands higher than the drawn sun so shadows stay readable
     sun.position.copy(p).addScaledVector(s.ldir, 120); sun.target.position.copy(p);
