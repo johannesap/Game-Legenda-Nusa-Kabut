@@ -314,7 +314,7 @@
     const crater = flat(new T.CircleGeometry(9, 20), TR.lavaMat, TR.height(VOLCANO.x, VOLCANO.z) + 0.4); crater.position.x = VOLCANO.x; crater.position.z = VOLCANO.z;
     scenery(scene, q); towns(scene); realmCastles(scene); docks(scene); lairMarks(scene); barriers(scene); dungeonGate(scene); dungeonHall(scene); diamondIsle(scene); skyIsles(scene, q);
     TR.TOWERS.forEach(tw => { tower(scene, tw.x, tw.z, TR.height(tw.x, tw.z), 2.6, 14, 0x9a948a, 0x8a2a1a); flag(scene, tw.x, TR.height(tw.x, tw.z) + 19.5, tw.z); });
-    return { terrain, chests: chests(scene) };
+    return { terrain, chests: chests(scene).concat(TR.skyChests) };
   };
 
   // nearest dry spot (not water, lava or a settlement) around (x, z)
@@ -802,6 +802,7 @@
   // thins to mist in mid-air. They never move, so each kind of part is merged into one mesh
   function skyIsles(scene, q) {
     const R = rng(41), { mat, add } = M(), parts = { rock: [], grass: [], trunk: [], crown: [], crys: [] }, spots = [];
+    TR.SKYISLES = []; TR.skyChests = []; // tops a flyer can land on (world.js), and the chest waiting on each
     const cv = document.createElement('canvas'), c = cv.getContext('2d'); cv.width = 32; cv.height = 128; // falling streaks, fading out downward
     for (let x = 0; x < 32; x++) { const v = 205 + R() * 50 | 0, g = c.createLinearGradient(0, 0, 0, 128); c.globalAlpha = Math.min(1, 0.25 + Math.min(x, 31 - x) / 5);
       g.addColorStop(0, 'rgba(' + v + ',' + v + ',255,0.9)'); g.addColorStop(0.5, 'rgba(' + v + ',' + v + ',255,0.45)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(x, 0, 1, 128); }
@@ -811,6 +812,7 @@
       if (spots.some(s => hyp(s[0] - x, s[1] - z) < 170) || TR.SKY && hyp(x - TR.SKY.x, z - TR.SKY.z) < 190) continue; // spread out, clear of the sky castle
       spots.push([x, z]);
       const y = Math.max(0, TR.height(x, z)) + 70 + R() * 45;
+      TR.SKYISLES.push({ x, z, r, top: y + 1.2 }); TR.skyChests.push(chestAt(scene, x + r * 0.35, y + 1.2, z - r * 0.2, 's' + spots.length));
       parts.grass.push([new T.CylinderGeometry(r, r * 0.9, 2.4, 12), x, y, z]);
       parts.rock.push([new T.ConeGeometry(r * 0.92, r * 1.6, 9).rotateX(P), x, y - 1.2 - r * 0.8, z]);
       for (let k = 0; k < 2; k++) { const b = R() * P * 2, rr = r * (0.4 + R() * 0.3), s = 1.5 + R() * 2; parts.rock.push([new T.ConeGeometry(s, s * 3, 7).rotateX(P), x + Math.cos(b) * rr, y - 2 - s * 1.5 - r * 0.3, z + Math.sin(b) * rr]); }
@@ -916,16 +918,16 @@
     }
   }
 
+  const chestAt = (scene, x, y, z, id) => { const { box, add } = M(), c = new T.Group(); add(c, box(1.2, 0.8, 0.8, 0x8b5a2b), 0, 0.4); add(c, box(1.25, 0.25, 0.85, 0xc9a13b), 0, 0.9); c.position.set(x, y, z); c.userData.id = id; scene.add(c); return c; };
   function chests(scene) {
-    const { box, add } = M(), R = rng(99), list = [];
+    const R = rng(99), list = [];
     for (let i = 0; list.length < 200 && i < 24000; i++) {
       const x = (R() - 0.5) * 2320, z = (R() - 0.5) * 2320, b = TR.biomeAt(x, z);
       if (hyp(x, z) > 1160) continue;
       if (b === 'town' || b === 'water' || TR.keepAt(x, z)) continue;
       const y = TR.height(x, z);
       if (y < TR.liquidY(TR.liquid(x, z)) + 0.2 || y > 18) continue;
-      const c = new T.Group(); add(c, box(1.2, 0.8, 0.8, 0x8b5a2b), 0, 0.4); add(c, box(1.25, 0.25, 0.85, 0xc9a13b), 0, 0.9);
-      c.position.set(x, y, z); c.userData.id = 'c' + list.length; scene.add(c); list.push(c);
+      list.push(chestAt(scene, x, y, z, 'c' + list.length));
     }
     return list;
   }

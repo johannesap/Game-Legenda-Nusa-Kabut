@@ -275,6 +275,13 @@
     FX.flashScreen(0x9ff0ff, 0.7); UI.toast(t('warped', { town: L(w.town.name) })); G.save();
   };
   World.onContext = c => UI.action(c);
+  // mounts: N, the 🦅 button or the Mounts panel call the last one ridden (a griffin at first); again to land and get off
+  G.ride = function (kind) {
+    if (!World.mount(kind)) return UI.toast(t('mountNo'));
+    G.S.mount = kind; UI.close(); FX.flashScreen(0xfff2c0, 0.35); UI.toast(t('mountCome', { m: t('mount_' + kind) })); G.save();
+  };
+  G.toggleMount = () => World.mounted() ? World.dismount() || UI.toast(t('mountLand')) : G.ride(G.S.mount || 'griffin');
+  World.onMount = kind => UI.mountUI(kind);
   World.onSail = on => { if (on) { G.S.st.sailed++; G.checkAch(); } UI.toast(t(on ? 'sailOn' : 'sailOff')); };
   World.npcLine = (role, tw) => { const list = t(role === 'guard' ? 'npcGuard' : tw.city ? 'npcCity' : 'npcTown'); return list[Math.random() * list.length | 0].replace('{town}', L(tw.name)); };
   World.onSpring = function () { const S = G.S, st = heroStats(S); if (S.hp < st.maxHp || S.mp < st.maxMp) { S.hp = st.maxHp; S.mp = st.maxMp; UI.toast(t('rest')); UI.hud(); G.save(); } };

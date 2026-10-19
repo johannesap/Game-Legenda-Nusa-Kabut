@@ -86,6 +86,19 @@
   };
 
   // teleport stone: every settlement of the middle lands and the eight realms, with the monster levels around it
+  // ---------- mounts ----------
+  UI.panels.mount = {
+    title: 'menu.mount', build() {
+      const on = World.mounted();
+      return h('div', { style: 'display:flex;flex-direction:column;gap:12px' },
+        h('p', {}, t('mountIntro')),
+        h('div', { class: 'grid' }, ['griffin', 'dragon'].map(k => h('div', { class: 'slot' + (on === k ? ' equipped' : ''), style: 'display:flex;flex-direction:column;gap:6px;text-align:left' },
+          h('b', {}, t('mount_' + k)), h('span', { class: 'sub' }, t('mountDesc_' + k)),
+          h('button', { type: 'button', class: 'primary', disabled: on === k, onclick: () => Game.ride(k) }, t(on === k ? 'mountRiding' : 'mountRide'))))),
+        on ? h('button', { type: 'button', onclick: () => { if (World.dismount()) UI.close(); else UI.toast(t('mountLand')); } }, t('mountOff')) : null,
+        h('p', { class: 'sub' }, t('mountHow')));
+    }
+  };
   UI.panels.warp = {
     title: 'warpTitle', build() {
       const here = Game.townHere(), wrap = h('div', { style: 'display:flex;flex-direction:column;gap:10px' }, h('p', {}, t('warpHint')));

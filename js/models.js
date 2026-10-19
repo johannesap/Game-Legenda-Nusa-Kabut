@@ -309,4 +309,17 @@
     g.userData.yOff = e.water ? (type === 'kraken' ? -1.2 : type === 'crab' ? -0.25 : -0.1) : e.float ? 1 : 0;
     return finish(g);
   };
+  // mounts: a griffin (a lion with eagle wings and a beak) or a young fire drake. Their wings are the Group children (they
+  // beat in flight); seat: how high the rider sits above the mount's feet
+  M.mount = function (kind) {
+    if (kind === 'dragon') { const d = M.enemy('firedrake'); d.scale.multiplyScalar(0.62); d.userData.seat = 1.65; return d; }
+    const g = M.enemy('lion'), feather = mat(0xf4ecd8, { side: T.DoubleSide });
+    [-1, 1].forEach(s => {
+      const wg = add(g, new T.Group(), s * 0.3, 1.32, 0.3); wg.rotation.z = s * 0.5;
+      for (let k = 0; k < 4; k++) add(wg, box(1.6 - k * 0.28, 0.06, 0.38, feather), s * (0.8 - k * 0.1), 0, -k * 0.3).rotation.y = s * k * 0.14;
+    });
+    add(g, new T.Mesh(new T.ConeGeometry(0.1, 0.32, 6), mat(0xf0c040)), 0, 1.3, 1.52).rotation.x = Math.PI / 2 + 0.3; // beak
+    g.scale.multiplyScalar(1.7); g.userData.seat = 2.3;
+    return finish(g);
+  };
 })();

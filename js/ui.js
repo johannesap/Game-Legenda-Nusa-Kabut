@@ -47,11 +47,11 @@
     while ($('toasts').children.length > 4) $('toasts').firstChild.remove();
   };
 
-  const MENU = ['bag', 'shop', 'hero', 'stats', 'ach', 'arena', 'mp', 'rank', 'chat', 'notif', 'profile', 'share', 'settings'];
+  const MENU = ['bag', 'shop', 'hero', 'mount', 'stats', 'ach', 'arena', 'mp', 'rank', 'chat', 'notif', 'profile', 'share', 'settings'];
   UI.buildMenu = function () {
     $('menu').replaceChildren(...MENU.map(m => h('button', { type: 'button', id: 'm_' + m, onclick: () => UI.open(m) }, t('menu.' + m))));
     $('panelClose').textContent = t('close'); $('hint').textContent = t('hint');
-    $('jumpBtn').textContent = t('jump'); UI.action(World.context); UI.place();
+    $('jumpBtn').textContent = t('jump'); UI.action(World.context); UI.mountUI(World.mounted && World.mounted()); UI.place();
     $('rotTitle').textContent = t('rotTitle'); $('rotText').textContent = t('rotText'); $('rotBtn').textContent = t('rotBtn'); UI.orient();
   };
   // keep the hint and jump button just above the (wrapping) menu rail
@@ -61,6 +61,7 @@
     if (hb) hb.style.bottom = (mh + 6) + 'px'; $('hint').style.bottom = (mh + 6 + hh) + 'px';
     $('stick').style.bottom = (mh + (low ? 6 : 10 + hh)) + 'px'; // beside the hotbar when the screen is short, above it otherwise
     $('jumpBtn').style.bottom = (mh + (low ? 10 : 36) + up) + 'px'; $('atkBtn').style.bottom = (mh + (low ? 4 : 32) + up) + 'px'; $('actBtn').style.bottom = (mh + (low ? 74 : 110) + up) + 'px';
+    $('downBtn').style.bottom = $('atkBtn').style.bottom; $('mountBtn').style.bottom = (mh + (low ? 6 : 10 + hh) + (document.body.classList.contains('touch') ? (low ? 112 : 128) : 0)) + 'px'; // above the stick
   };
   // phones play sideways: while the phone is upright a card asks to turn it (and pauses the world); where the browser
   // allows it, going fullscreen locks the screen to landscape on the first tap
@@ -96,6 +97,14 @@
   $('actBtn').onclick = () => World.interact();
   addEventListener('resize', () => UI.place());
   $('jumpBtn').onclick = () => World.jump();
+  // riding: ▲ (the jump button) climbs and ▼ (in the attack button's place) dives while held; 🦅 calls or lands the mount
+  const hold = (id, v) => { const b = $(id); b.addEventListener('pointerdown', () => { World.lift = v; }); ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => b.addEventListener(ev, () => { World.lift = 0; })); };
+  hold('jumpBtn', 1); hold('downBtn', -1);
+  $('mountBtn').onclick = () => Game.toggleMount();
+  UI.mountUI = on => {
+    const b = $('mountBtn'); b.classList.toggle('on', !!on); b.title = t(on ? 'mountOff' : 'mountOn'); b.setAttribute('aria-label', b.title);
+    $('jumpBtn').textContent = on ? '▲' : t('jump'); $('downBtn').hidden = !on; $('atkBtn').hidden = !!on;
+  };
 
   UI.hud = function () {
     const S = Game.S, st = heroStats(S);

@@ -50,6 +50,7 @@
   // ---------- your moves ----------
   A.attack = function (e) {
     if (down || World.paused || World.stage) return;
+    if (World.aloft()) return UI.toast(t('mountNoFight'));
     const S = Game.S, st = heroStats(S), look = BASIC_FX[S.cls] || ['melee', 0xffffff, 'slash', {}], reach = RANGED[S.cls] ? 15 : 3.4;
     const tgt = pickTarget(e, reach); if (tgt) A.target = tgt;
     if (tgt && dist(tgt) > reach) return approach(tgt, () => A.attack(tgt));
@@ -63,6 +64,7 @@
   const cdOf = sk => 1500 + sk.mp * 220; // 5 MP: 2.6 s · 22 MP: 6.3 s
   A.skill = function (id) {
     if (down || World.paused || World.stage) return;
+    if (World.aloft()) return UI.toast(t('mountNoFight'));
     const S = Game.S, sk = SKILLS[id]; if (!sk || (cds[id] || 0) > now()) return;
     if (S.mp < sk.mp) { UI.toast(t('noMp')); return; }
     const reach = sk.fx === 'melee' ? 4 : 18; let tgt = null;
@@ -228,5 +230,6 @@
     if (e.key === 'j' || e.key === 'J') A.attack();
     else if (KEYS.includes(e.key.toUpperCase())) { const s = list[KEYS.indexOf(e.key.toUpperCase())]; if (s) A.skill(s.id); }
     else if (e.key === 'h' || e.key === 'H') A.potion();
+    else if (e.key === 'n' || e.key === 'N') Game.toggleMount();
   });
 })();

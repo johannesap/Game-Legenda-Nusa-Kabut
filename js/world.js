@@ -36,7 +36,7 @@
   let renderer, scene, cam, sun, hemi, terrain, player, chests = [], yaw = 0.6, pitch = 0.55, dist = 15, target = null, last = 0, snap = true, jumpH = 0, vy = 0, stuck = 0;
   let sky = null, maxEnemies = 24, lastArea = '', areaT = 0, swimming = false, rippleT = 0, lowQ = false, skyK = 1;
   const ripples = [], ships = [], npcs = [];
-  let sailing = null, ctxT = 0, talkEl = null, talkNpc = null, talkUntil = 0;
+  let mount = null, isle = null, sailing = null, ctxT = 0, talkEl = null, talkNpc = null, talkUntil = 0;
   W.swimming = () => swimming;
   W.sailing = () => !!sailing;
   W.ships = ships; // where each ship is now (the minimap shows them)
@@ -44,7 +44,7 @@
   W.player = () => player;
   W.yaw = () => yaw; // camera heading, for the minimap
   W.anims = []; // per-frame callbacks (battle effects); return false to finish
-  W.jump = () => { if (!W.paused && jumpH === 0 && !swimming) vy = 9; };
+  W.jump = () => { if (!W.paused && jumpH === 0 && !swimming && !mount) vy = 9; };
   const keys = {}, ray = new T.Raycaster();
   let inSpring = null;
 
@@ -239,14 +239,14 @@
     const old = player && player.position.clone();
     if (player) scene.remove(player);
     player = W.buildHero(look, cls); scene.add(player);
-    const p = pos || old || { x: 0, z: 6 }; player.position.set(clampW(p.x), TR.ground(p.x, p.z), clampW(p.z)); snap = true;
+    const p = pos || old || { x: 0, z: 6 }; player.position.set(clampW(p.x), old && (mount || isle) ? old.y : TR.ground(p.x, p.z), clampW(p.z)); snap = true; // riding or on an island: stay up there
   };
   W.playerPos = () => player ? { x: +player.position.x.toFixed(1), z: +player.position.z.toFixed(1) } : { x: 0, z: 6 };
   W.frozenUntil = 0;
   W.stick = { x: 0, y: 0 };
   W.moveTo = v => { target = v ? new T.Vector3(v.x, 0, v.z) : null; }; // walk toward a point (null stops)
-  W.warp = (x, z, look) => { if (!player) return; sailing = null; swimming = false; target = null; jumpH = vy = 0; player.position.set(x, TR.ground(x, z), z); if (look != null) yaw = look; snap = true; updateContext(); };
-  W.toVillage = () => { if (player) { sailing = null; swimming = false; player.position.set(0, TR.ground(0, 6), 6); target = null; snap = true; } };
+  W.warp = (x, z, look) => { if (!player) return; unmount(); isle = null; sailing = null; swimming = false; target = null; jumpH = vy = 0; player.position.set(x, TR.ground(x, z), z); if (look != null) yaw = look; snap = true; updateContext(); };
+  W.toVillage = () => { if (player) { unmount(); isle = null; sailing = null; swimming = false; player.position.set(0, TR.ground(0, 6), 6); target = null; snap = true; } };
 
   // ---------- monsters ----------
   const bossBack = {};
@@ -332,19 +332,21 @@
       if (mv.lengthSq()) target = null;
       else if (target) { mv.set(target.x - p.x, 0, target.z - p.z); if (mv.length() < (sailing ? 4 : 0.4)) target = null; }
       if (sailing) sail(dt, now);
+      else if (mount) moving = fly(dt, push);
       else if (mv.lengthSq() > 0.0001) {
         mv.normalize().multiplyScalar((swimming ? 5 : 9) * dt * (push ? Math.min(1, push) : 1)); // a half-pushed stick walks slower
         const x0 = p.x, z0 = p.z;
         p.x = clampW(p.x + mv.x); p.z = clampW(p.z + mv.z);
-        TR.collide(p, 0.5); // trees, rocks, houses and fountains are solid; water is walkable
+        if (isle) { const dx = p.x - isle.x, dz = p.z - isle.z, d = hyp(dx, dz), m = isle.r - 1.5; if (d > m) { p.x = isle.x + dx / d * m; p.z = isle.z + dz / d * m; } } // a floating island's rim holds you in
+        else TR.collide(p, 0.5); // trees, rocks, houses and fountains are solid; water is walkable
         if (!W.open(p.x, p.z) && W.open(x0, z0)) { const need = TR.areaLevel(p.x, p.z); p.x = x0; p.z = z0; target = null; W.onLocked && W.onLocked(need); } // a locked area: stay out (walking out of one is fine)
         const moved = hyp(p.x - x0, p.z - z0);
         if (W.onStep) W.onStep(moved);
         if (target && moved < (swimming ? 5 : 9) * dt * 0.25) { if ((stuck += dt) > 0.5) { target = null; stuck = 0; } } else stuck = 0;
         player.rotation.y = Math.atan2(mv.x, mv.z); moving = true;
       }
-      if (!sailing) {
-        const st = W.stance(p.x, p.z); swimming = st.swim;
+      if (!sailing && !mount) {
+        const st = isle ? { y: isle.top, swim: false } : W.stance(p.x, p.z); swimming = st.swim;
         if (swimming) jumpH = vy = 0;
         else if (vy || jumpH) { vy -= 25 * dt; jumpH = Math.max(0, jumpH + vy * dt); if (!jumpH) vy = 0; }
         p.y = swimming ? W.swimY(st, moving) : st.y + jumpH;
@@ -354,7 +356,8 @@
       if (W.onLive && !W.stage) W.onLive(dt, now);
     }
     if (!W.stage) {
-      if (swimming && !sailing) W.swimPose(player, moving, dt);
+      if (mount) { player.rotation.x = 0; const u = player.userData; u.legs[0].rotation.x = u.legs[1].rotation.x = -1.35; u.arms[0].rotation.x = u.arms[1].rotation.x = -0.6; } // seated, hands on the reins
+      else if (swimming && !sailing) W.swimPose(player, moving, dt);
       else { player.rotation.x = 0; animateWalk(player, moving && !jumpH, dt); }
       if (jumpH) { const u = player.userData; u.legs[0].rotation.x = 0.7; u.legs[1].rotation.x = -0.3; u.arms[0].rotation.x = u.arms[1].rotation.x = -2.4; }
     }
@@ -382,7 +385,7 @@
       const cx = p.x + Math.sin(yaw) * horiz, cz = p.z + Math.cos(yaw) * horiz;
       // keep the camera above the ground; a low pitch then looks up at the hero and sky. Across the edge of the sky deck or the
       // dungeon hall, the floor is the hero's own: never under the deck, nor lifted onto it from the land below
-      const raised = (x, z) => TR.skyAt(x, z) || TR.dungeonAt(x, z), onR = raised(p.x, p.z), fl = onR === raised(cx, cz) ? TR.ground(cx, cz) : onR ? gy : TR.height(cx, cz);
+      const raised = (x, z) => TR.skyAt(x, z) || TR.dungeonAt(x, z), onR = raised(p.x, p.z), fl = isle ? gy : onR === raised(cx, cz) ? TR.ground(cx, cz) : onR ? gy : TR.height(cx, cz);
       cam.position.lerp(new T.Vector3(cx, Math.max(gy + dist * Math.sin(pitch), fl + 0.8), cz), snap ? 1 : 0.12); snap = false;
       const L = W.live; if (L && L.shakeUntil > now) { const k = L.shakeAmp * (L.shakeUntil - now) / 300; cam.position.x += (Math.random() - 0.5) * k; cam.position.y += (Math.random() - 0.5) * k; }
       cam.lookAt(p.x, gy + 1.5, p.z);
@@ -404,8 +407,8 @@
       if (e.dead) continue; // falling over; action.js removes it
       const can = e.water ? inWater : onLand, far = hyp(m.position.x - e.home.x, m.position.z - e.home.z), reach = (e.boss ? 3.2 : 1.3) + 0.45 * e.size;
       // real-time fights: a monster that sees you (or that you hit) comes after you until it strays too far from home
-      if (d < (e.boss ? 14 : 10) && !safe && !sailing && now > W.grace && can(p.x, p.z) === can(m.position.x, m.position.z)) e.aggro = true;
-      if (e.aggro && !e.dungeon && (far > (e.boss ? 24 : 45) || d > 40 || safe || sailing || now < W.grace)) { e.aggro = false; W.onLeash && W.onLeash(e); }
+      if (d < (e.boss ? 14 : 10) && !safe && !sailing && !mount && !isle && now > W.grace && can(p.x, p.z) === can(m.position.x, m.position.z)) e.aggro = true;
+      if (e.aggro && !e.dungeon && (far > (e.boss ? 24 : 45) || d > 40 || safe || sailing || mount || isle || now < W.grace)) { e.aggro = false; W.onLeash && W.onLeash(e); }
       const chase = e.aggro && !(e.stunUntil > now), close = chase && d < reach;
       let goal = e.goal, speed = e.water ? 2.8 : 2.2;
       if (chase) { goal = p; speed = e.water ? 6 : e.boss ? 4 : 5.5; }
@@ -426,7 +429,7 @@
       const ground = TR.ground(m.position.x, m.position.z), bob = Math.sin(now / 300 + e.ph);
       m.position.y = ground + m.userData.yOff + (e.water ? bob * 0.12 : e.float ? bob * 0.3 : e.type === 'slime' ? Math.abs(bob) * 0.3 : 0);
     }
-    for (const c of chests) if (c.visible && hyp(p.x - c.position.x, p.z - c.position.z) < 2) { c.visible = false; W.onChest && W.onChest(c.userData.id); }
+    for (const c of chests) if (c.visible && hyp(p.x - c.position.x, p.z - c.position.z) < 2 && Math.abs(p.y - (mount ? mount.seat : 0) - c.position.y) < 2.5) { c.visible = false; W.onChest && W.onChest(c.userData.id); }
     if ((ctxT -= dt) < 0) { ctxT = 0.25; updateContext(); }
     for (const n of npcs) if (n.role !== 'guard' && now > n.said && hyp(p.x - n.m.position.x, p.z - n.m.position.z) < 3.2) { talk(n, now); break; }
     const sp = TR.springs.find(s => hyp(p.x - s.x, p.z - s.z) < 4.6) || null;
@@ -469,7 +472,7 @@
     const p = player.position; let c = null;
     if (sailing) { if (landSpot()) c = { kind: 'leave' }; }
     else {
-      const sh = ships.find(s => hyp(p.x - s.mesh.position.x, p.z - s.mesh.position.z) < 7);
+      const sh = !mount && ships.find(s => hyp(p.x - s.mesh.position.x, p.z - s.mesh.position.z) < 7);
       const pl = TR.PLACES.find(q => hyp(p.x - q.x, p.z - q.z) < 5);
       if (sh) c = { kind: 'board', ship: sh }; else if (pl) c = { kind: pl.kind };
     }
@@ -483,6 +486,43 @@
     else if (W.onPlace) W.onPlace(c.kind);
     updateContext();
   };
+
+  // ---------- mounts: a griffin or dragon to fly on ----------
+  // no colliders up there, quicker than walking, Space/Shift (or ▲/▼ held) climb and dive. The floor is the land, the water,
+  // the sky deck or a floating island's top once you are above it; level walls still hold
+  const FLY_MAX = 230;
+  W.lift = 0; // ▲ (+1) or ▼ (-1) held on screen
+  W.mounted = () => mount ? mount.kind : null;
+  W.aloft = () => !!(mount || isle); // riding, or standing on a floating island: no fighting, monsters below lose interest
+  const isleAt = (x, z, y) => TR.SKYISLES.find(i => hyp(x - i.x, z - i.z) < i.r - 0.6 && y > i.top - 1.5);
+  const flyFloor = (x, z, y) => { const i = isleAt(x, z, y); return i ? i.top : TR.skyAt(x, z) && y < TR.SKY.y - 1.5 ? Math.max(TR.height(x, z), TR.WATER) : W.stance(x, z).y; };
+  const unmount = () => { if (!mount) return; scene.remove(mount.mesh); player.position.y -= mount.seat; mount = null; W.lift = 0; W.onMount && W.onMount(null); };
+  W.mount = function (kind) {
+    const p = player && player.position; if (!p || W.stage || sailing || TR.dungeonAt(p.x, p.z)) return false;
+    unmount(); const m = Models.mount(kind); scene.add(m);
+    mount = { kind, mesh: m, seat: m.userData.seat, speed: kind === 'dragon' ? 30 : 24, wings: m.children.filter(c => c.isGroup), low: true };
+    isle = null; swimming = false; jumpH = vy = 0; target = null; p.y += mount.seat; W.onMount && W.onMount(kind); return true;
+  };
+  // getting off only near the ground; on a floating island the hero then walks its top
+  W.dismount = function () {
+    if (!mount) return true; if (!mount.low) return false;
+    const p = player.position; unmount(); isle = isleAt(p.x, p.z, p.y); return true;
+  };
+  function fly(dt, push) {
+    const p = player.position, up = (keys[' '] || W.lift > 0 ? 1 : 0) - (keys.shift || W.lift < 0 ? 1 : 0); let moving = false;
+    if (mv.lengthSq() > 0.0001) {
+      mv.normalize().multiplyScalar(mount.speed * dt * (push ? Math.min(1, push) : 1));
+      const x0 = p.x, z0 = p.z; p.x = clampW(p.x + mv.x); p.z = clampW(p.z + mv.z);
+      if (!W.open(p.x, p.z) && W.open(x0, z0)) { const need = TR.areaLevel(p.x, p.z); p.x = x0; p.z = z0; target = null; W.onLocked && W.onLocked(need); }
+      player.rotation.y = Math.atan2(mv.x, mv.z); moving = true;
+    }
+    const feet = p.y - mount.seat, fl = flyFloor(p.x, p.z, feet), y = Math.min(FLY_MAX, Math.max(fl, feet + up * 12 * dt));
+    p.y = y + mount.seat; mount.low = y - fl < 0.8;
+    const f = mount.low && !moving ? 0.25 : Math.sin(performance.now() / (up > 0 ? 110 : 190)) * 0.6; // wings beat harder climbing
+    mount.wings.forEach((wg, i) => { wg.rotation.z = (i ? 1 : -1) * (0.5 + f); });
+    mount.mesh.position.set(p.x, y, p.z); mount.mesh.rotation.y = player.rotation.y;
+    return moving;
+  }
 
   // ---------- townsfolk: citizens stroll and chat, guards hold the gates ----------
   function npcSpot(tw) {
@@ -544,6 +584,7 @@
   // ---------- battle stage: heroes in a row facing the foe, camera from the side ----------
   // allies: [{key, mesh}] of other players' avatars joining this fight
   W.beginStage = function (foe, temp, allies) {
+    if (mount) { const q = player.position; unmount(); q.y = flyFloor(q.x, q.z, q.y); isle = isleAt(q.x, q.z, q.y); } // fights happen on foot
     allies = allies || [];
     const p = player.position, dir = new T.Vector3(foe.position.x - p.x, 0, foe.position.z - p.z);
     if (dir.lengthSq() < 0.01) dir.set(Math.sin(player.rotation.y), 0, Math.cos(player.rotation.y));

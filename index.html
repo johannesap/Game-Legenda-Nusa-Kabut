@@ -225,7 +225,11 @@ body.inbattle #hud,body.inbattle #hint,body.inbattle #jumpBtn,body.inbattle #men
 .fxnum.heal{color:#7dff8a}.fxnum.mp{color:#8fb8ff}.fxnum.poison{color:#b6f06a}.fxnum.miss{color:#ddd;font-size:1.25em}
 @keyframes rise{0%{opacity:0;margin-top:10px}15%{opacity:1}100%{opacity:0;margin-top:-70px}}
 #actBtn{position:fixed;right:max(16px,env(safe-area-inset-right,0px));z-index:5;padding:.55em 1em;border-radius:99px;box-shadow:0 2px 10px var(--shade);font-weight:700}
-body.inbattle #actBtn,body.inbattle #atkBtn{visibility:hidden}
+body.inbattle #actBtn,body.inbattle #atkBtn,body.inbattle #mountBtn,body.inbattle #downBtn{visibility:hidden}
+/* mounts: 🦅 calls or lands the mount (bottom-left, above the stick on touch screens); ▼ dives, in the attack button's place */
+#mountBtn{position:fixed;left:max(18px,env(safe-area-inset-left,0px));width:54px;height:54px;border-radius:50%;padding:0;z-index:5;font-size:1.5em;box-shadow:0 2px 10px var(--shade)}
+#mountBtn.on{background:#2f5f9a;border-color:#8fc8ff}
+#downBtn{position:fixed;right:calc(max(16px,env(safe-area-inset-right,0px)) + 68px);width:64px;height:64px;border-radius:50%;padding:0;z-index:5;font-weight:700;font-size:1.2em;box-shadow:0 2px 10px var(--shade)}
 #atkBtn{position:fixed;right:calc(max(16px,env(safe-area-inset-right,0px)) + 68px);width:68px;height:68px;border-radius:50%;padding:0;z-index:5;overflow:hidden;background:#b8432f;border:2px solid #f08a66;color:#fff;font-weight:700;font-size:.84em;box-shadow:0 2px 10px var(--shade)}
 #atkBtn b{position:relative;z-index:1}
 #atkBtn kbd{position:absolute;top:7px;left:0;right:0;text-align:center;font:600 .72em "Oswald",sans-serif;color:#ffd27a;z-index:1}
@@ -321,6 +325,8 @@ body.touch #hint{display:none}
 <div id="stick" aria-hidden="true" hidden><i></i></div>
 <button id="jumpBtn" type="button"></button>
 <button id="atkBtn" type="button"></button>
+<button id="downBtn" type="button" hidden>▼</button>
+<button id="mountBtn" type="button">🦅</button>
 <button id="actBtn" type="button" class="primary" hidden></button>
 
 <div id="create" class="overlay" hidden>
