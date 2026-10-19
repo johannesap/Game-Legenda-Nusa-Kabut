@@ -47,7 +47,7 @@
     while ($('toasts').children.length > 4) $('toasts').firstChild.remove();
   };
 
-  const MENU = ['bag', 'shop', 'hero', 'mount', 'stats', 'ach', 'arena', 'mp', 'rank', 'chat', 'notif', 'profile', 'share', 'settings'];
+  const MENU = ['story', 'bag', 'shop', 'hero', 'mount', 'stats', 'ach', 'arena', 'mp', 'rank', 'chat', 'notif', 'profile', 'share', 'settings'];
   UI.buildMenu = function () {
     $('menu').replaceChildren(...MENU.map(m => h('button', { type: 'button', id: 'm_' + m, onclick: () => UI.open(m) }, t('menu.' + m))));
     $('panelClose').textContent = t('close'); $('hint').textContent = t('hint');
@@ -118,7 +118,8 @@
     if (nb) { nb.querySelector('.dot')?.remove(); if (unread) nb.append(h('span', { class: 'dot' }, unread > 9 ? '9+' : unread)); }
     const q = Game.quests();
     const bounties = S.guild.active.map(b => h('div', { class: b.cur >= b.n ? 'sub' : '' }, (b.cur >= b.n ? '✓ ' : '◆ ') + L(ENEMIES[b.type].name) + ' (' + b.cur + '/' + b.n + ')'));
-    $('quest').replaceChildren(h('b', {}, t('daily')), ...q.map(x => h('div', { class: x.done ? 'sub' : '' }, (x.done ? '✓ ' : '○ ') + x.label + ' (' + Math.min(x.cur, x.n) + '/' + x.n + ')')),
+    const sc = STORY[S.story]; // the story's current chapter leads the list
+    $('quest').replaceChildren(...(sc ? [h('b', {}, '📜 ' + L(sc.title)), h('div', {}, '◆ ' + Game.storyGoal(sc.goal))] : []), h('b', { style: sc ? 'display:block;margin-top:4px' : '' }, t('daily')), ...q.map(x => h('div', { class: x.done ? 'sub' : '' }, (x.done ? '✓ ' : '○ ') + x.label + ' (' + Math.min(x.cur, x.n) + '/' + x.n + ')')),
       ...(bounties.length ? [h('b', { style: 'display:block;margin-top:4px' }, t('bounties')), ...bounties] : []));
   };
   // game clock, time of day and current region under the hero name

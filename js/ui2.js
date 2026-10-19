@@ -86,6 +86,16 @@
   };
 
   // teleport stone: every settlement of the middle lands and the eight realms, with the monster levels around it
+  // ---------- the main story ----------
+  UI.panels.story = {
+    title: 'menu.story', build() {
+      const S = Game.S, ch = STORY[S.story], done = STORY.slice(0, S.story);
+      return h('div', { style: 'display:flex;flex-direction:column;gap:12px' },
+        ch ? [h('h3', {}, t('stChapter', { n: S.story + 1, m: STORY.length }) + ' · ' + L(ch.title)), h('p', {}, L(ch.text)), h('div', { class: 'slot' }, h('b', {}, '◆ ' + Game.storyGoal(ch.goal)), h('span', { class: 'sub' }, t('stHint')))]
+          : [h('h3', {}, L(STORY_END.title)), h('p', {}, L(STORY_END.text))],
+        done.length ? h('details', {}, h('summary', {}, t('stPast', { n: done.length })), h('ol', {}, done.map(c => h('li', {}, L(c.title))))) : null);
+    }
+  };
   // ---------- mounts ----------
   UI.panels.mount = {
     title: 'menu.mount', build() {

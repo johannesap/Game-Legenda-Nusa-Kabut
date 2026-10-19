@@ -18,6 +18,7 @@
   LAIRS.forEach(l => { if (!ENEMIES[l.type]) bad.push('sarang: ' + l.type); if (!BIOMES[l.region]) bad.push('sarang ' + l.type + ': wilayah ' + l.region); });
   Object.entries(CLASSES).forEach(([c, v]) => (v.skills || []).forEach(s => { const id = Array.isArray(s) ? s[0] : s; if (!SKILLS[id]) bad.push('kelas ' + c + ': skill ' + id); }));
   Object.entries(EVOS).forEach(([k, e]) => { if (!EVOS[e.from] && !CLASSES[e.from]) bad.push('evolusi ' + k + ': asal ' + e.from); });
+  STORY.forEach((c, i) => { const g = c.goal; if (g.town ? !TOWNS.some(x => x.id === g.town) : g.boss ? !ENEMIES[g.boss] || !LAIRS.some(l => l.type === g.boss) : !g.evo) bad.push('cerita bab ' + (i + 1) + ': tujuan ' + JSON.stringify(g)); });
   for (let l = 1, last = 0; l < MAX_LVL; l++) { const n = xpNeed(l); if (!(n >= last && n > 0)) bad.push('xpNeed(' + l + ') = ' + n); last = n; }
   const keys = (o, p = '') => Object.entries(o).flatMap(([k, v]) => v && typeof v === 'object' && !Array.isArray(v) ? keys(v, p + k + '.') : [p + k]);
   const id = new Set(keys(I18N.id)), en = new Set(keys(I18N.en));

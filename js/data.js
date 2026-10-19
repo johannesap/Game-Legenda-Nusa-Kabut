@@ -342,6 +342,8 @@ Object.assign(ENEMIES, {
   diamondscorp: mob('Kalajengking Berlian', 'Diamond Scorpion', 100, 0xcff0ff, 'scorpion', { poison: .2, def: 120, drops: fDrops(9) }),
   diamondwisp:  mob('Roh Berlian', 'Diamond Wisp', 100, 0xeaffff, 'wisp', { float: true, stun: .3, agi: 14, drops: fDrops(9) }),
   diamondking:  lord('Raja Berlian', 'Diamond King', 100, 0xe8fbff, 'golem', [N('Badai Berlian', 'Diamond Storm'), 0xbff4ff, 'meteor', 'ice'], { glow: 0x9fefff, scale: 2.8, hp: 8000, def: 160, drops: [['weapon9', 1], ['armor10', 1], ['hipotion', 1]] }),
+  // the main story's last foe, in the Void Reach
+  mistking:     lord('Raja Kabut', 'Mist King', 100, 0xb8c4d8, 'humanoid', [N('Badai Kabut', 'Mist Storm'), 0xd8e4ff, 'meteor', 'ice'], { outfit: 0x2a3348, weapon: 'greatsword', horns: true, wings: 0x8a96b0, halo: true, scale: 3, hp: 15000, def: 180, drops: [['weapon9', 1], ['armor10', 1], ['hipotion', 1]] }),
   voidsovereign: lord('Penguasa Hampa', 'Void Sovereign', 100, 0x3a2a5a, 'humanoid', [N('Ledakan Hampa', 'Void Burst'), 0xb06cff, 'meteor', 'dark'], { outfit: 0x0a0a1a, weapon: 'greatsword', horns: true, wings: 0x1a0a2a, halo: true, scale: 2.6, drops: [['weapon9', 1], ['armor10', .6], ['hipotion', 1]] })
 });
 // the dungeon's foes at any level: the strongest ordinary monsters up to that level (scaled forms where they exist)
@@ -415,8 +417,45 @@ window.LAIRS = [
   { type: 'seraph', region: 'angel', x: 143, z: -675 }, { type: 'dryadqueen', region: 'elf', x: 579, z: -376 },
   { type: 'thunderking', region: 'storm', x: 1024, z: 373 }, { type: 'glasssphinx', region: 'glass', x: -38, z: 1089 }, { type: 'swamphydra', region: 'marsh', x: -1040, z: 312 },
   { type: 'crystaldragon', region: 'crystal', x: -684, z: -853 }, { type: 'voidsovereign', region: 'void', x: 738, z: -808 },
-  { type: 'diamondking', region: 'diamond', x: ISLE.x - 40, z: ISLE.z - 40 }
+  { type: 'diamondking', region: 'diamond', x: ISLE.x - 40, z: ISLE.z - 40 }, { type: 'mistking', region: 'void', x: 520, z: -940 }
 ];
+// the main story, chapter by chapter from Mist Village to the Mist King. Each goal is something the game already tracks:
+// a settlement reached (town), a boss defeated (boss), the first job change (evo)
+window.STORY = [
+  { goal: { town: 'capital' }, title: N('Kabut yang Bangkit', 'The Rising Mist'),
+    text: N('Tetua Desa Kabut memanggilmu: kabut kelabu yang aneh merayap dari tepi dunia, dan monster menjadi buas di dalamnya. Pergilah ke Kota Mahkota dan kabarkan ini kepada Raja.',
+      'The elder of Mist Village calls for you: a strange grey mist is creeping in from the edge of the world, and monsters turn savage inside it. Go to Crown City and tell the King.') },
+  { goal: { boss: 'kingslime' }, title: N('Ujian Sang Raja', 'The King\'s Trial'),
+    text: N('Raja mendengarkan, lalu tersenyum tipis: "Buktikan dulu keberanianmu." Raja Lendir di Padang Hijau sudah lama mengganggu para petani. Kalahkan dia.',
+      'The King listens, then smiles thinly: "First, prove your courage." The King Slime of the Green Meadow has troubled the farmers for too long. Defeat it.') },
+  { goal: { evo: 1 }, title: N('Jalan Seorang Pahlawan', 'A Hero\'s Path'),
+    text: N('Raja mengakuimu sebagai pahlawan kerajaan, tapi kekuatanmu masih mentah. Buka layar Karakter dan pilih job pertamamu.',
+      'The King names you a hero of the realm, but your strength is still raw. Open the Character screen and choose your first job.') },
+  { goal: { boss: 'lichking' }, title: N('Bisikan dari Hutan Kematian', 'Whispers in the Deathwood'),
+    text: N('Pengintai kerajaan menemukan sumbernya: Raja Lich di Hutan Kematian menghirup kabut untuk membangkitkan pasukan mayat. Hentikan dia sebelum kabut menelan desa-desa.',
+      'Royal scouts found a source: the Lich King of the Deathwood breathes in the mist to raise an army of the dead. Stop him before the mist swallows the villages.') },
+  { goal: { boss: 'warlord' }, title: N('Delapan Negeri', 'The Eight Realms'),
+    text: N('Di tubuh Raja Lich kamu menemukan pecahan kristal bertuliskan Segel Kabut. Pecahan lainnya tersebar di delapan negeri. Di Negeri Manusia, Panglima Pemberontak yang dirasuki kabut memegang salah satunya.',
+      'On the Lich King you find a crystal shard carved with the Mist Seal. More shards lie across the eight realms. In the Human Kingdom, the mist-possessed Rebel Warlord holds one.') },
+  { goal: { boss: 'seraph' }, title: N('Kastil di Atas Awan', 'The Castle Above the Clouds'),
+    text: N('Para malaikat menjaga pecahan berikutnya, tapi Seraf Agung pun sudah tersentuh kabut. Naiklah lewat gerbang cahaya ke Kastil Langit Seraphel dan bebaskan dia dengan pedangmu.',
+      'The angels guard the next shard, but the High Seraph has been touched by the mist too. Rise through the gate of light to the Seraphel Sky Castle and free him with your blade.') },
+  { goal: { boss: 'elderdragon' }, title: N('Api dari Gunung Tertinggi', 'Fire from the Highest Peak'),
+    text: N('Naga Purba terbangun dengan mata kelabu dan membakar Negeri Naga. Pecahan terkuat ada di sarangnya, di puncak gunung tertinggi.',
+      'The Elder Dragon woke with grey eyes and is burning the Dragon Realm. The strongest shard lies in its lair on the highest peak.') },
+  { goal: { boss: 'thunderking' }, title: N('Badai di Tepi Dunia', 'Storm at the Edge of the World'),
+    text: N('Segel hampir utuh, tapi kabut kini mengalir dari Tanah Perbatasan. Raja Guntur di Padang Badai menjaga jalan menuju sumbernya.',
+      'The Seal is almost whole, but the mist now pours from the Frontier. The Thunder King of the Stormlands guards the way to its source.') },
+  { goal: { boss: 'crystaldragon' }, title: N('Pecahan Terakhir', 'The Last Shard'),
+    text: N('Naga Kristal menelan pecahan terakhir dan bersembunyi di Hutan Kristal. Tanpa pecahan itu, Segel Kabut tidak berguna.',
+      'The Crystal Dragon swallowed the last shard and hid in the Crystal Forest. Without it, the Mist Seal is useless.') },
+  { goal: { boss: 'mistking' }, title: N('Raja Kabut', 'The Mist King'),
+    text: N('Segel Kabut kini utuh dan menunjuk ke Tanah Hampa. Di sana bersemayam Raja Kabut, penguasa lama yang dibuang ke tepi dunia dan kini ingin menelan seluruh Nusa Kabut. Akhiri legenda ini.',
+      'The Mist Seal is whole and points to the Void Reach. There dwells the Mist King, an old ruler banished to the edge of the world who now wants to swallow all of Nusa Kabut. End this legend.') }
+];
+window.STORY_END = { title: N('Legenda Nusa Kabut', 'The Legend of Nusa Kabut'),
+  text: N('Raja Kabut tumbang dan kabut kelabu memudar dari seluruh negeri. Namamu kini dinyanyikan dari Desa Kabut sampai Pulau Berlian. Tapi petualangan belum berakhir: dunia ini masih menyimpan banyak rahasia.',
+    'The Mist King falls and the grey mist fades from every land. Your name is sung from Mist Village to the Diamond Island. But the adventure isn\'t over: this world still holds many secrets.') };
 // adventurers' guild ranks and the points needed for each
 window.RANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
 window.RANK_PTS = [0, 20, 50, 100, 180, 300, 500];
@@ -498,7 +537,8 @@ window.ACHS = [
   { id: 'dragon', name: N('Penakluk Naga', 'Dragonslayer'), desc: N('Kalahkan Naga Kabut.', 'Defeat the Mist Dragon.'), ok: s => (s.st.kills.dragon || 0) >= 1 },
   { id: 'bighit', name: N('Pukulan Dahsyat', 'Mighty Blow'), desc: N('Berikan 100+ kerusakan sekali pukul.', 'Deal 100+ damage in one hit.'), ok: s => s.st.maxHit >= 100 },
   { id: 'daily', name: N('Rajin', 'Diligent'), desc: N('Klaim hadiah misi harian.', 'Claim a daily quest reward.'), ok: s => s.st.dailyClaims >= 1 },
-  { id: 'social', name: N('Bersuara', 'Speaking Up'), desc: N('Kirim pesan obrolan pertama.', 'Send your first chat message.'), ok: s => s.st.chats >= 1 }
+  { id: 'social', name: N('Bersuara', 'Speaking Up'), desc: N('Kirim pesan obrolan pertama.', 'Send your first chat message.'), ok: s => s.st.chats >= 1 },
+  { id: 'legend', name: N('Penjaga Nusa Kabut', 'Guardian of Nusa Kabut'), desc: N('Tamatkan alur cerita utama.', 'Finish the main story.'), ok: s => s.story >= STORY.length }
 ];
 function kills(s) { return Object.values(s.st.kills).reduce((a, b) => a + b, 0); }
 window.kills = kills;

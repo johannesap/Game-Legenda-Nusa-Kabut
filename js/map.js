@@ -61,6 +61,7 @@
     for (const d of TR.DOCKS) { const q = at(d.x0, d.z0); if (!q[2] || isFull) icon(q, 5, '#2f5f9a', '⚓'); }
     for (const s of World.ships) { const q = at(s.mesh.position.x, s.mesh.position.z); if (!q[2]) icon(q, 4.5, '#8a5a2a', '⛵'); }
     for (const b of TR.LAIRS) { const q = at(b.x, b.z); icon(q, 7, '#2a2024', '☠'); if (isFull) label(L(ENEMIES[b.type].name), q, 13, 10); }
+    const goal = Game.S && Game.storyTarget(); if (goal) { const q = at(goal.x, goal.z); icon(q, isFull ? 9 : 7, '#c8901a', '★'); } // the story's next stop (pinned to the minimap's rim when far)
     for (const o of Net.positions()) { const q = at(o.x, o.z); dot(q, 4, tok('mp')); if (isFull) label(o.name, q, -11, 11); }
     marks().forEach((m, i) => { const q = at(m.x, m.z); icon(q, isFull ? 8 : 6, '#e0603a', '⚑'); if (isFull) label(String(i + 1), q, -14, 11); }); // your own pins (the minimap keeps far ones on its rim)
     const me = World.player();

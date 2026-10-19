@@ -13,7 +13,7 @@
       pos: { x: 0, z: 6 }, st: { battles: 0, wins: 0, losses: 0, kills: {}, dmg: 0, maxHit: 0, gold: 0, steps: 0, playMs: 0, chests: 0, arenaW: 0, arenaL: 0, dailyClaims: 0, chats: 0, sailed: 0 }, guild: { pts: 0, day: '', board: [], active: [] }, bossClaims: [],
       log: [], ach: {}, daily: { date: '', kill: 0, chest: 0, arena: 0, score: 0, claimed: [], opened: [] }, rating: 1000, season: '', rewards: [],
       profile: { title: '', bio: '', color: look.cape }, settings: { lang: LANG, theme: 'auto', accent: '', scale: 1, quality: matchMedia('(pointer: coarse)').matches ? 'low' : 'high', reminder: '19:00', notif: true, lastRemind: '', warned: '' },
-      notes: [], updated: 0
+      notes: [], updated: 0, story: 0
     };
     const st = heroStats(S); S.hp = st.maxHp; S.mp = st.maxMp;
     return S;
@@ -99,7 +99,7 @@
     if (!e || e.from !== (S.evo2 || S.evo || S.cls) || S.lvl < EVO_LV[tier]) return; // only the next job on your own path
     if (tier === 1) S.evo = id; else S.evo2 = id;
     for (const k in e.bonus) S.attr[k] += e.bonus[k];
-    G.notify(L(e.name) + '!'); G.checkAch(); G.save(); UI.hud();
+    G.notify(L(e.name) + '!'); questCheck(); G.save(); UI.hud();
   };
 
   // ---------- daily quests, season, reminders ----------
@@ -108,8 +108,27 @@
     return [{ k: 'kill', n: 5 + seed, label: t('qKill', { n: 5 + seed }) }, { k: 'chest', n: 2, label: t('qChest', { n: 2 }) }, { k: 'arena', n: 1, label: t('qArena', { n: 1 }) }]
       .map(q => ({ ...q, cur: d[q.k], done: d[q.k] >= q.n, claimed: d.claimed.includes(q.k) }));
   };
+  // ---------- the main story: a finished goal pays out and opens the next chapter (several at once for a hero who did them before) ----------
+  const storyMet = g => g.town ? (G.townHere() || {}).id === g.town : g.boss ? G.S.st.kills[g.boss] > 0 : !!G.S.evo;
+  function storyCheck() {
+    const S = G.S; let n = 0;
+    while (S.story < STORY.length && storyMet(STORY[S.story].goal)) {
+      const g = 200 * (S.story + 1), x = Math.round(xpNeed(Math.min(S.lvl, MAX_LVL - 1)) * 0.25);
+      S.gold += g; S.st.gold += g; gainXp(x, []); G.notify(t('stDone', { c: L(STORY[S.story].title), g, x })); S.story++; n++;
+    }
+    if (n) UI.hud(); if (n && !UI.current && $('battle').hidden && $('create').hidden) UI.open('story');
+  }
+  G.storyGoal = g => {
+    if (g.town) return t('stGoTown', { n: L(TOWNS.find(x => x.id === g.town).name) });
+    if (g.evo) return t('stGoEvo', { lv: EVO_LV[1] });
+    const l = LAIRS.find(x => x.type === g.boss);
+    const lv = Terrain.areaLevel(l.x, l.z);
+    return t('stGoBoss', { n: L(ENEMIES[g.boss].name), r: L(BIOMES[l.region].name) }) + (lv > 1 ? ' · ' + t('needLvl', { n: lv }) : '');
+  };
+  // where the current chapter leads (a star on the maps)
+  G.storyTarget = () => { const c = STORY[G.S.story], g = c && c.goal; return !g ? null : g.town ? TOWNS.find(x => x.id === g.town) : g.boss ? Terrain.LAIRS.find(l => l.type === g.boss) : null; };
   function questCheck() {
-    const S = G.S;
+    const S = G.S; storyCheck();
     G.quests().forEach(q => { if (q.done && !q.claimed) { S.daily.claimed.push(q.k); S.gold += 50; S.st.gold += 50; S.st.dailyClaims++; G.notify('✓ ' + q.label + ' · ' + t('reward', { g: 50 })); } });
     G.checkAch();
   }
@@ -202,6 +221,7 @@
     UI.area = town ? L(town.name) : L(BIOMES[b].name); UI.clockLine();
     UI.toast(t(town ? 'enterTown' : 'enterArea', { a: UI.area }));
     if (!town && b !== 'water' && !S.seen.includes(b)) { S.seen.push(b); G.checkAch(); }
+    if (town) questCheck(); // a chapter may lead here
   };
   let burnMsg = 0;
   World.onBurn = function (dt) {
@@ -322,7 +342,7 @@
   G.finishCreate = function (name, cls, look, edit) {
     if (edit) { G.S.hero.name = name; G.S.hero.look = look; World.setHero(G.heroLook(), G.S.cls); G.save(); UI.hud(); World.paused = false; return; }
     start(fresh(name, cls, look));
-    G.notify(t('nDaily'));
+    G.notify(t('nDaily')); UI.open('story'); // the first chapter is the welcome
   };
   // G.S goes first: the pagehide save on the way out would otherwise write the hero straight back
   G.reset = async function () { G.S = null; clearTimeout(cloudTimer); Cloud.clearLocal(); await Cloud.wipe(); location.reload(); };
