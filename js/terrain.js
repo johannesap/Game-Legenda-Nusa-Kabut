@@ -3,7 +3,7 @@
 //   center: Mist Village; inner ring: meadow (SE half) and pine forest (NW half) with a big lake
 //   outer ring by direction: east desert, south deathwood, west magma (volcano + dragon), north tundra
 //   mountain ridges separate the outer regions (with passes); past the frontier the land drops into the open sea,
-//   with the Diamond Island (data.js ISLE) across a strait in the south-west
+//   with the Diamond Island (data.js ISLE) across a strait in the south-west; four rivers run through the water lands
 (function () {
   const T = THREE, P = Math.PI, hyp = Math.hypot;
   const TR = window.Terrain = { HALF: 1240, WATER: -1.6, LAVA: -0.9, springs: [], warps: [], gears: [], smoke: [], barriers: [] };
@@ -86,6 +86,29 @@
   const S2 = Math.SQRT1_2, LAKE = TR.LAKE = { x: -78, z: 78, a: 45, b: 120, ux: -S2, uz: S2, vx: -S2, vz: -S2 }, VOLCANO = TR.VOLCANO = { x: -380, z: 20 };
   // 1 on the shore of the long lake, below 1 inside (half-widths: 45 m across, 120 m along)
   const lakeD = (x, z) => { const dx = x - LAKE.x, dz = z - LAKE.z; return hyp((dx * LAKE.ux + dz * LAKE.uz) / LAKE.a, (dx * LAKE.vx + dz * LAKE.vz) / LAKE.b); };
+  // rivers, source to mouth: channels cut to a bed under the water line so the world's water fills them. They only cross
+  // lands whose liquid is water (never lava, ice or cloud) and keep clear of settlements, castles and lairs
+  const RIVERS = [
+    { w: 8, pts: [[200, -120], [275, -55], [350, -15], [420, 0], [480, 0], [560, 25], [650, 35], [730, 25], [790, 0], [880, 45], [990, 105], [1090, 140], [1260, 165]] }, // east to the sea
+    { w: 7, pts: [[480, 500], [430, 440], [345, 345], [270, 350], [200, 355], [130, 345], [60, 345], [-15, 305], [-40, 220], [-40, 140]] }, // beast hills to the lake
+    { w: 8, pts: [[-530, -30], [-640, -40], [-740, 10], [-810, 62], [-900, 85], [-1010, 115], [-1110, 135], [-1260, 150]] }, // giants' land, a gorge, the marsh, the sea
+    { w: 6, pts: [[395, -390], [470, -340], [560, -250], [640, -150], [700, -50], [730, 25]] } // the elves' stream, into the east river
+  ].map(rv => { // segments with their running length from the source, and a box so far points skip the river fast
+    const segs = [], xs = rv.pts.map(p => p[0]), zs = rv.pts.map(p => p[1]), m = rv.w + 30; let s = 0;
+    for (let i = 1; i < rv.pts.length; i++) { const [px, pz] = rv.pts[i - 1], dx = rv.pts[i][0] - px, dz = rv.pts[i][1] - pz, l = hyp(dx, dz); segs.push([px, pz, dx, dz, l, s]); s += l; }
+    return { w: rv.w, segs, x0: Math.min(...xs) - m, x1: Math.max(...xs) + m, z0: Math.min(...zs) - m, z1: Math.max(...zs) + m };
+  });
+  const carve = (x, z, h) => {
+    const mx = x + 8 * Math.sin(z * 0.023), mz = z + 8 * Math.sin(x * 0.019); // gentle meanders
+    for (const rv of RIVERS) {
+      if (mx < rv.x0 || mx > rv.x1 || mz < rv.z0 || mz > rv.z1) continue;
+      let d = 1e9, at = 0;
+      for (const [px, pz, dx, dz, l, s] of rv.segs) { const t = Math.max(0, Math.min(1, ((mx - px) * dx + (mz - pz) * dz) / (l * l))), e = hyp(mx - px - dx * t, mz - pz - dz * t); if (e < d) { d = e; at = s + t * l; } }
+      const w = rv.w * (0.35 + 0.65 * smooth(0, 120, at)), k = smooth(w + 10, w * 0.5, d); // a narrow spring widening downstream; 10 m banks
+      if (k > 0) h += (Math.min(h, -3.4) - h) * k;
+    }
+    return h;
+  };
   // two piers on the lake, each with a ship moored at its end (x1, z1)
   TR.DOCKS = [
     { id: 'harbor', name: { id: 'Dermaga Pelabuhan', en: 'Harbor Pier' }, x0: 13, z0: 140.7, x1: -14.4, z1: 141.6 },
@@ -165,7 +188,7 @@
     h -= 30 * smooth(1160, 1225, r);
     const di = hyp(x - ISLE.x, z - ISLE.z), ik = smooth(ISLE.r + 40, ISLE.r - 20, di); // the Diamond Island: low shores, a hill in the middle
     if (ik > 0) h = h * (1 - ik) + (2.4 + 1.8 * Math.sin(x * 0.05) * Math.cos(z * 0.045) + 10 * smooth(62, 8, di)) * ik;
-    return h;
+    return carve(x, z, h);
   };
   // settlements are flattened to the land's own height at their center (a mountain fort stays up high)
   const FLATS = TOWNS.concat(Object.values(KEEPS)); // settlements and castle plateaus are levelled
