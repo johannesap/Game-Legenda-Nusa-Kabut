@@ -85,13 +85,14 @@
 
   // ---------- progression ----------
   function gainXp(xp, msgs) {
-    const S = G.S; S.xp += xp;
+    const S = G.S, lv0 = S.lvl; S.xp += xp;
     while (S.lvl < MAX_LVL && S.xp >= xpNeed(S.lvl)) {
       S.xp -= xpNeed(S.lvl); S.lvl++; S.pts += 3; const st = heroStats(S); S.hp = st.maxHp; S.mp = st.maxMp;
       msgs.push(t('levelUp', { n: S.lvl })); G.notify(t('levelUp', { n: S.lvl }));
       const n = evoChain(S).length + 1; if (S.lvl === EVO_LV[n]) G.notify(t('evoOpen', { n, lv: S.lvl }));
     }
     if (S.lvl >= MAX_LVL) S.xp = 0; // the cap: nothing left to bank
+    if (S.lvl > lv0) Sound.play('level');
   }
   G.allocate = a => { const S = G.S; if (S.pts > 0) { S.attr[a]++; S.pts--; G.save(); UI.hud(); } };
   G.evolve = function (id) {
@@ -116,7 +117,7 @@
       const g = 200 * (S.story + 1), x = Math.round(xpNeed(Math.min(S.lvl, MAX_LVL - 1)) * 0.25);
       S.gold += g; S.st.gold += g; gainXp(x, []); G.notify(t('stDone', { c: L(STORY[S.story].title), g, x })); S.story++; n++;
     }
-    if (n) UI.hud(); if (n && !UI.current && $('battle').hidden && $('create').hidden) UI.open('story');
+    if (n) { Sound.play('level'); UI.hud(); } if (n && !UI.current && $('battle').hidden && $('create').hidden) UI.open('story');
   }
   G.storyGoal = g => {
     if (g.town) return t('stGoTown', { n: L(TOWNS.find(x => x.id === g.town).name) });
@@ -213,7 +214,7 @@
     const roll = Math.random(); let what;
     if (roll < 0.4) { const g = 20 + Math.floor(Math.random() * 40); S.gold += g; S.st.gold += g; what = t('gold', { n: g }); }
     else what = G.addItem(roll < 0.7 ? 'potion' : roll < 0.85 ? 'ether' : roll < 0.95 ? 'hipotion' : 'weapon1');
-    UI.toast(t('chestOpen', { item: what })); questCheck(); G.save(); UI.hud();
+    Sound.play('chest'); UI.toast(t('chestOpen', { item: what })); questCheck(); G.save(); UI.hud();
   };
   // entering a region: announce it once and remember it for the explorer achievement
   World.onArea = function (b, town) {
@@ -287,13 +288,13 @@
     if (!World.context || World.context.kind !== 'warp' || Battle.active()) return;
     if (Terrain.areaLevel(w.town.x, w.town.z) > G.S.lvl) return UI.toast(t('lockWarn', { n: Terrain.areaLevel(w.town.x, w.town.z) }));
     UI.close(); World.warp(w.ax, w.az, Math.atan2(w.town.x - w.ax, w.town.z - w.az)); // camera over the fountain, the stone behind you
-    FX.flashScreen(0x9ff0ff, 0.7); UI.toast(t('warped', { town: L(w.town.name) })); G.save();
+    FX.flashScreen(0x9ff0ff, 0.7); Sound.play('cast'); UI.toast(t('warped', { town: L(w.town.name) })); G.save();
   };
   World.onContext = c => UI.action(c);
   // mounts: N, the 🦅 button or the Mounts panel call the last one ridden (a griffin at first); again to land and get off
   G.ride = function (kind) {
     if (!World.mount(kind)) return UI.toast(t('mountNo'));
-    G.S.mount = kind; UI.close(); FX.flashScreen(0xfff2c0, 0.35); UI.toast(t('mountCome', { m: t('mount_' + kind) })); G.save();
+    G.S.mount = kind; UI.close(); FX.flashScreen(0xfff2c0, 0.35); Sound.play('mount', kind === 'dragon'); UI.toast(t('mountCome', { m: t('mount_' + kind) })); G.save();
   };
   G.toggleMount = () => World.mounted() ? World.dismount() || UI.toast(t('mountLand')) : G.ride(G.S.mount || 'griffin');
   World.onMount = kind => UI.mountUI(kind);

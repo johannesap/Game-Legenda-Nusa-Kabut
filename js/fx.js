@@ -71,6 +71,7 @@
   // opt: dash (fast, with afterimages), leap (jump in and slam), spin (whirl), twin (two slashes)
   FX.lunge = function (k, tk, onHit, color, opt) {
     const a = actor(k), b = actor(tk); if (!a || !b) { onHit && onHit(); return; }
+    Sound.play('swing');
     opt = opt || {};
     const m = a.mesh, dir = b.home.clone().sub(a.home).setY(0), reach = Math.max(0, dir.length() - 1.6); dir.normalize();
     const arms = m.userData.arms || (m.userData.walker && m.userData.walker.userData.arms), ry = m.rotation.y, dur = opt.dash ? 400 : opt.leap ? 680 : 520;
@@ -106,6 +107,7 @@
   // raise the casting hand with a glow
   FX.cast = function (k, color) {
     const m = mesh(k); if (!m) return;
+    Sound.play('cast');
     const arms = m.userData.arms;
     if (arms) FX.anim(420, q => { arms[1].rotation.x = -Math.sin(q * Math.PI) * 2.2; });
     const orb = new T.Mesh(new T.SphereGeometry(0.35, 12, 10), glow(color, 0.8));
@@ -119,6 +121,7 @@
   // projectile from k to tk. style: bolt | arrow | volley | meteor | wave | strike | spikes
   FX.bolt = function (k, tk, style, color, onHit, elem, opt) {
     if (!mesh(k) || !mesh(tk)) { onHit && onHit(); return; }
+    Sound.play('swing');
     opt = opt || {};
     if (style === 'volley') { for (let i = 0; i < 5; i++) setTimeout(() => FX.bolt(k, tk, 'arrow', color, i === 4 ? onHit : null, elem), i * 70); return; }
     if (style === 'meteor' && opt.count > 1) {
@@ -149,6 +152,7 @@
   // ---------- element impacts ----------
   FX.impact = function (k, elem, color, strong) {
     if (!mesh(k)) return;
+    Sound.play(k === 'me' ? 'hurt' : 'hit', strong);
     const E = {
       fire: () => FX.explode(k, color, strong), ice: () => FX.shards(k, color), bolt: () => { FX.lightning(k, color); FX.explode(k, color, false); },
       poison: () => FX.cloud(k, color), dark: () => FX.vortex(k, color), holy: () => { FX.pillar(k, color); FX.burst(k, color, 22); },
@@ -313,6 +317,7 @@
   FX.heal = function (k, text, color, cls) {
     color = color || 0x7dff8a;
     const m = mesh(k); if (!m) return;
+    Sound.play('chime');
     const base = m.position.clone(), h = tall(k);
     const ring = new T.Mesh(new T.TorusGeometry(0.9, 0.06, 6, 28), glow(color)); ring.rotation.x = Math.PI / 2;
     temp(ring, 800, (q, o) => { o.position.set(base.x, base.y + q * h, base.z); o.material.opacity = 0.9 * (1 - q); });
@@ -358,6 +363,7 @@
   // fall over (defeat)
   FX.die = function (k) {
     const a = actor(k); if (!a) return;
+    Sound.play('die');
     const m = a.mesh, y0 = a.home.y;
     m.rotation.order = 'YXZ'; // tilt in the model's own frame, so it always falls backwards
     FX.anim(700, q => { const e = ease(q); m.rotation.x = -e * 1.45; m.position.y = y0 - e * 0.25; });
