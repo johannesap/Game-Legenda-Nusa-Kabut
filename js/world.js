@@ -226,7 +226,7 @@
   function spawnNear() {
     const p = player.position, a = Math.random() * P * 2, d = 45 + Math.random() * 85, x = clampW(p.x + Math.cos(a) * d), z = clampW(p.z + Math.sin(a) * d);
     if (TR.townAt(x, z, 14) || TR.dungeonAt(x, z) || !W.open(x, z)) return; // nothing spawns behind a wall the hero can't pass yet
-    if (inWater(x, z)) return spawn(pick(WATER_SPAWN(hyp(x, z))), x, z);
+    if (inWater(x, z)) return hyp(x, z) < 1150 && spawn(pick(WATER_SPAWN(hyp(x, z))), x, z); // the open sea is calm
     const b = TR.biomeAt(x, z);
     if (onLand(x, z) && BIOMES[b] && BIOMES[b].spawn.length) { const ty = pick(BIOMES[b].spawn); spawn(BIOMES[b].realm && W.heroLvl ? realmFoe(ty, W.heroLvl()) : ty, x, z); }
   }
@@ -349,6 +349,7 @@
       cam.lookAt(p.x, gy + 1.5, p.z);
     }
     updateLife(dt, now, updateSky(now));
+    TR.DUNGEON.hall.visible = TR.dungeonAt(p.x, p.z);
     cam.updateMatrixWorld(); TR.cull(cam, p);
     renderer.render(scene, cam);
   }

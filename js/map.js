@@ -4,12 +4,12 @@
   const TR = Terrain, H = TR.HALF, STEP = 4, VIEW = 110, $ = id => document.getElementById(id);
   const COL = { meadow: 0x78a862, forest: 0x4f7f45, mountain: 0x8a8478, desert: 0xd9b77a, ice: 0xe4edf2, magma: 0x3a3030, death: 0x4b4652, town: 0xd8c8a0, snow: 0xf2f6f8,
     human: 0x8fb860, beast: 0xc8b070, elf: 0x5fbf8a, giant: 0x5a8a4a, dwarf: 0x7a6a5a, angel: 0xeef0f4, dragon: 0x3a2a26, demon: 0x4a1c1c,
-    storm: 0x6a8a5a, glass: 0xece0c4, marsh: 0x46583a, crystal: 0x8a7ab8, void: 0x2e2038 };
+    storm: 0x6a8a5a, glass: 0xece0c4, marsh: 0x46583a, crystal: 0x8a7ab8, void: 0x2e2038, diamond: 0xd6eef8 };
   const LIQ = { water: 0x3f86b8, lava: 0xff5a1a, ice: 0xa8d0e4, cloud: 0xf4f6fa };
   // where each region's name sits on the full map (checked against Terrain.biomeAt)
   const LABELS = [['forest', -90, -80], ['meadow', 95, 75], ['mountain', 185, -185], ['desert', 290, -100], ['ice', -60, -230], ['magma', -290, 110], ['death', 0, 300],
     ['human', 640, 0], ['beast', 452, 452], ['demon', 0, 640], ['dragon', -452, 452], ['giant', -640, 0], ['dwarf', -452, -452], ['angel', 0, -640], ['elf', 452, -452],
-    ['storm', 1000, 0], ['glass', 309, 951], ['marsh', -809, 588], ['crystal', -809, -588], ['void', 309, -951]];
+    ['storm', 1000, 0], ['glass', 309, 951], ['marsh', -809, 588], ['crystal', -809, -588], ['void', 309, -951], ['diamond', ISLE.x, ISLE.z]];
 
   let base = null, full = null, view = null; // view: the full map's centre and half-width in metres (zoom and pan)
   const MAXMARKS = 12, marks = () => Game.S ? (Game.S.marks = Game.S.marks || []) : [];

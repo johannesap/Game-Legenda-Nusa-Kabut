@@ -337,6 +337,11 @@ Object.assign(ENEMIES, {
   voidshade:   mob('Bayangan Hampa', 'Void Shade', 100, 0x5a3a8a, 'ghost', { float: true, agi: 14, drops: fDrops(9) }),
   voidfiend:   mob('Iblis Hampa', 'Void Fiend', 100, 0x2a1a3a, 'humanoid', { outfit: 0x1a0a2a, weapon: 'scythe', horns: true, wings: 0x2a1a3a, bat: true, drops: fDrops(9) }),
   voideye:     mob('Mata Hampa', 'Void Eye', 100, 0x8a3aff, 'wisp', { float: true, stun: .3, drops: fDrops(9) }),
+  // the Diamond Island out in the south-west sea
+  diamondgolem: mob('Golem Berlian', 'Diamond Golem', 100, 0xdff6ff, 'golem', { glow: 0x9fefff, def: 140, agi: 3, drops: fDrops(9) }),
+  diamondscorp: mob('Kalajengking Berlian', 'Diamond Scorpion', 100, 0xcff0ff, 'scorpion', { poison: .2, def: 120, drops: fDrops(9) }),
+  diamondwisp:  mob('Roh Berlian', 'Diamond Wisp', 100, 0xeaffff, 'wisp', { float: true, stun: .3, agi: 14, drops: fDrops(9) }),
+  diamondking:  lord('Raja Berlian', 'Diamond King', 100, 0xe8fbff, 'golem', [N('Badai Berlian', 'Diamond Storm'), 0xbff4ff, 'meteor', 'ice'], { glow: 0x9fefff, scale: 2.8, hp: 8000, def: 160, drops: [['weapon9', 1], ['armor10', 1], ['hipotion', 1]] }),
   voidsovereign: lord('Penguasa Hampa', 'Void Sovereign', 100, 0x3a2a5a, 'humanoid', [N('Ledakan Hampa', 'Void Burst'), 0xb06cff, 'meteor', 'dark'], { outfit: 0x0a0a1a, weapon: 'greatsword', horns: true, wings: 0x1a0a2a, halo: true, scale: 2.6, drops: [['weapon9', 1], ['armor10', .6], ['hipotion', 1]] })
 });
 // the dungeon's foes at any level: the strongest ordinary monsters up to that level (scaled forms where they exist)
@@ -368,6 +373,7 @@ window.BIOMES = {
   marsh:    { name: N('Rawa Purba', 'Primeval Marsh'), realm: true, frontier: true, spawn: ['boglizard', 'rottreant', 'toxicooze'] },
   crystal:  { name: N('Hutan Kristal', 'Crystal Forest'), realm: true, frontier: true, spawn: ['crystalstag', 'crystalsentinel', 'crystalwisp'] },
   void:     { name: N('Tanah Hampa', 'Void Reach'), realm: true, frontier: true, spawn: ['voidshade', 'voidfiend', 'voideye'] },
+  diamond:  { name: N('Pulau Berlian', 'Diamond Island'), realm: true, frontier: true, spawn: ['diamondgolem', 'diamondscorp', 'diamondwisp'] },
   human:    { name: N('Negeri Manusia', 'Human Kingdom'), realm: true, spawn: ['bandit', 'renegade', 'bandit'] },
   beast:    { name: N('Negeri Beast', 'Beastlands'), realm: true, spawn: ['lion', 'rhino', 'lion'] },
   elf:      { name: N('Negeri Elf', 'Elven Realm'), realm: true, spawn: ['dryad', 'spiritstag', 'dryad'] },
@@ -394,8 +400,10 @@ window.realmFoe = (type, lvl) => { let best = type; for (let lv = 25; lv <= lvl 
 window.REALMS = ['human', 'beast', 'demon', 'dragon', 'giant', 'dwarf', 'angel', 'elf'];
 // the frontier lands beyond them, every 72° starting east
 window.FRONTIER = ['storm', 'glass', 'marsh', 'crystal', 'void'];
+// the Diamond Island, across a strait from the Crystal Forest in the sea that now rings the world (r: its shore)
+window.ISLE = { x: -976, z: -976, r: 108 };
 // the level each area opens at: the centre is free, then one step every 10 levels
-window.AREA_LV = { inner: 10, human: 20, beast: 20, elf: 30, giant: 30, dwarf: 40, angel: 40, dragon: 50, demon: 50, storm: 60, glass: 70, marsh: 80, crystal: 90, void: 100 };
+window.AREA_LV = { inner: 10, human: 20, beast: 20, elf: 30, giant: 30, dwarf: 40, angel: 40, dragon: 50, demon: 50, storm: 60, glass: 70, marsh: 80, crystal: 90, void: 100, diamond: 100 };
 // where each region's boss waits (lairs are nudged onto dry ground by terrain.js; the kraken stays in the lake)
 window.LAIRS = [
   { type: 'kingslime', region: 'meadow', x: 80, z: 135 }, { type: 'treant', region: 'forest', x: -60, z: -140 },
@@ -406,7 +414,8 @@ window.LAIRS = [
   { type: 'elderdragon', region: 'dragon', x: -442, z: 442 }, { type: 'giantking', region: 'giant', x: -675, z: -143 }, { type: 'ironking', region: 'dwarf', x: -376, z: -579 },
   { type: 'seraph', region: 'angel', x: 143, z: -675 }, { type: 'dryadqueen', region: 'elf', x: 579, z: -376 },
   { type: 'thunderking', region: 'storm', x: 1024, z: 373 }, { type: 'glasssphinx', region: 'glass', x: -38, z: 1089 }, { type: 'swamphydra', region: 'marsh', x: -1040, z: 312 },
-  { type: 'crystaldragon', region: 'crystal', x: -684, z: -853 }, { type: 'voidsovereign', region: 'void', x: 738, z: -808 }
+  { type: 'crystaldragon', region: 'crystal', x: -684, z: -853 }, { type: 'voidsovereign', region: 'void', x: 738, z: -808 },
+  { type: 'diamondking', region: 'diamond', x: ISLE.x - 40, z: ISLE.z - 40 }
 ];
 // adventurers' guild ranks and the points needed for each
 window.RANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
@@ -436,7 +445,8 @@ window.TOWNS = [
   { id: 'saphira', x: 297, z: 913, r: 32, houses: 7, style: 2, name: N('Oasis Kaca Saphira', 'Saphira Glass Oasis') },
   { id: 'moorfen', x: -777, z: 564, r: 32, houses: 7, style: 4, name: N('Desa Rawa Moorfen', 'Moorfen Bog Village') },
   { id: 'lumina', x: -777, z: -564, r: 34, houses: 8, style: 7, walls: true, name: N('Kota Kristal Lumina', 'Lumina Crystal City') },
-  { id: 'nyx', x: 297, z: -913, r: 34, houses: 7, style: 11, walls: true, name: N('Benteng Terakhir Nyx', 'Nyx Last Bastion') }
+  { id: 'nyx', x: 297, z: -913, r: 34, houses: 7, style: 11, walls: true, name: N('Benteng Terakhir Nyx', 'Nyx Last Bastion') },
+  { id: 'adamas', x: ISLE.x + 40, z: ISLE.z + 40, r: 26, houses: 5, style: 3, walls: true, name: N('Pos Berlian Adamas', 'Adamas Diamond Haven') }
 ];
 // what each settlement's shop sells: goods and skill books
 const STOCK = {
@@ -461,6 +471,7 @@ const STOCK = {
   moorfen: [['hipotion', 'ether', 'weapon8', 'armor9'], ['earthspike', 'shadowstrike']],
   lumina: [['hipotion', 'ether', 'weapon9', 'armor10'], ['holynova', 'thunderstorm']],
   nyx: [['hipotion', 'ether', 'weapon9', 'armor10'], ['shadowstrike', 'arcanemissile']],
+  adamas: [['hipotion', 'ether', 'weapon9', 'armor10'], ['holynova', 'thunderstorm']],
   vorx: [['hipotion', 'ether', 'weapon4', 'weapon9', 'armor10'], ['shadowstrike', 'holynova']]
 };
 TOWNS.forEach(tw => { tw.goods = STOCK[tw.id][0]; tw.books = STOCK[tw.id][1]; });

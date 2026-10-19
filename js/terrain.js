@@ -2,7 +2,8 @@
 // colliders, settlements and treasure chests. Pure functions first, then the builder.
 //   center: Mist Village; inner ring: meadow (SE half) and pine forest (NW half) with a big lake
 //   outer ring by direction: east desert, south deathwood, west magma (volcano + dragon), north tundra
-//   mountain ridges separate the outer regions (with passes), and the world edge is a mountain wall
+//   mountain ridges separate the outer regions (with passes); past the frontier the land drops into the open sea,
+//   with the Diamond Island (data.js ISLE) across a strait in the south-west
 (function () {
   const T = THREE, P = Math.PI, hyp = Math.hypot;
   const TR = window.Terrain = { HALF: 1240, WATER: -1.6, LAVA: -0.9, springs: [], warps: [], gears: [], smoke: [], barriers: [] };
@@ -159,7 +160,11 @@
     const o3 = smooth(800, 850, r); // the frontier lands
     if (o3 > 0) h = h * (1 - o3) + (h * 0.2 + FRONT_H[frontierOf(x, z)](x, z)) * o3 + frontRidge(x, z) * (15 + 5 * Math.sin(x * 0.03 + z * 0.04));
     h += edgeW(x, z) * (26 + 6 * Math.sin(x * 0.05 + z * 0.04)); // the old edge of the world, now with passes
-    h += 40 * smooth(1180, 1240, r); // the edge of the world
+    // a dry bank where a frontier land's own lava or ice would touch the sea (r 1150), then the coast drops into the deep
+    if (r > 1120 && FRONT_LIQ[frontierOf(x, z)]) h += (Math.max(h, 0.6) - h) * smooth(1120, 1132, r) * smooth(1175, 1163, r);
+    h -= 30 * smooth(1160, 1225, r);
+    const di = hyp(x - ISLE.x, z - ISLE.z), ik = smooth(ISLE.r + 40, ISLE.r - 20, di); // the Diamond Island: low shores, a hill in the middle
+    if (ik > 0) h = h * (1 - ik) + (2.4 + 1.8 * Math.sin(x * 0.05) * Math.cos(z * 0.045) + 10 * smooth(62, 8, di)) * ik;
     return h;
   };
   // settlements are flattened to the land's own height at their center (a mountain fort stays up high)
@@ -173,7 +178,7 @@
     return h;
   };
   // what fills the low ground: water, lava in the magma region, frozen water in the tundra
-  TR.liquid = (x, z) => { const r = hyp(x, z); if (r < 172) return 'water'; if (r >= 800) return FRONT_LIQ[frontierOf(x, z)] || 'water'; if (r >= 490) return REALM_LIQ[realmOf(x, z)] || 'water'; const s = sectorOf(x, z); return s === 'magma' ? 'lava' : s === 'ice' ? 'ice' : 'water'; };
+  TR.liquid = (x, z) => { const r = hyp(x, z); if (r < 172 || r >= 1150) return 'water'; if (r >= 800) return FRONT_LIQ[frontierOf(x, z)] || 'water'; if (r >= 490) return REALM_LIQ[realmOf(x, z)] || 'water'; const s = sectorOf(x, z); return s === 'magma' ? 'lava' : s === 'ice' ? 'ice' : 'water'; };
   TR.liquidY = k => k === 'lava' ? TR.LAVA : k === 'ice' || k === 'cloud' ? TR.WATER + 0.08 : TR.WATER;
   // where feet rest: on the ground or on top of the water/lava/ice surface
   // the floating castle of the angel realm (set up in TR.build): inside its deck circle you stand high above the ground
@@ -189,22 +194,28 @@
     if (r < 175) return x + z < 0 ? 'forest' : 'meadow';
     if (ringW(x, z) > 0.4) return 'mountain';
     if (edgeW(x, z) > 0.4) return 'mountain';
-    if (r >= 800) return frontRidge(x, z) > 0.5 || r > 1185 ? 'mountain' : frontierOf(x, z);
+    if (TR.isleAt(x, z)) return 'diamond';
+    if (r >= 800) return frontRidge(x, z) > 0.5 ? 'mountain' : frontierOf(x, z);
     if (r >= 500) return realmRidge(x, z) > 0.5 ? 'mountain' : realmOf(x, z);
     if (ridgeW(x, z) > 0.45 || h > 12) return 'mountain';
     return sectorOf(x, z);
   };
+  TR.isleAt = (x, z, m) => hyp(x - ISLE.x, z - ISLE.z) < ISLE.r + (m || 0);
   // the level an area needs: the centre is free, the inner ring Lv 10, the realms in pairs up to Lv 50, the frontier lands
-  // one by one up to Lv 100; nothing lies past the world's edge (the dungeon hall counts as open)
+  // (and the sea off their coasts) one by one up to Lv 100, the Diamond Island's waters Lv 100; the open sea past r 1400 or
+  // the map's square edge is closed (that keeps swimmers well away from the dungeon hall; the hall itself counts as open)
+  TR.isleZone = (x, z) => TR.isleAt(x, z, 50);
   TR.areaLevel = (x, z) => {
     if (TR.dungeonAt(x, z)) return 1;
+    if (TR.isleZone(x, z)) return AREA_LV.diamond;
     const r = hyp(x, z);
-    return r < 200 ? 1 : r < 492 ? AREA_LV.inner : r < 800 ? AREA_LV[realmOf(x, z)] : r < 1215 ? AREA_LV[frontierOf(x, z)] : Infinity;
+    if (r > 1400 || Math.max(Math.abs(x), Math.abs(z)) > TR.HALF - 15) return Infinity;
+    return r < 200 ? 1 : r < 492 ? AREA_LV.inner : r < 800 ? AREA_LV[realmOf(x, z)] : AREA_LV[frontierOf(x, z)];
   };
 
   const COL = Object.fromEntries(Object.entries({ meadow: 0x78a862, forest: 0x4f7f45, desert: 0xd9b77a, ice: 0xe4edf2, magma: 0x3a3030, death: 0x4b4652,
     rock: 0x8a8478, snow: 0xf2f6f8, sand: 0xcfbf8a, mud: 0x3a3a34, ember: 0x7a2e18, town: 0x86b86d, ash: 0x4a4040, grave: 0x5a5660,
-    human: 0x8fb860, farm1: 0xc8b060, farm2: 0x6a8a3a, beast: 0xc8b070, elf: 0x5fbf8a, giant: 0x5a8a4a, dwarf: 0x7a6a5a, angel: 0xeef0f4, gold: 0xe8d8a0, dragon: 0x3a2a26, demon: 0x4a1c1c, cloud: 0xf4f6fa, storm: 0x6a8a5a, glass: 0xece0c4, marsh: 0x46583a, crystal: 0x8a7ab8, void: 0x2e2038 }).map(([k, v]) => [k, new T.Color(v)]));
+    human: 0x8fb860, farm1: 0xc8b060, farm2: 0x6a8a3a, beast: 0xc8b070, elf: 0x5fbf8a, giant: 0x5a8a4a, dwarf: 0x7a6a5a, angel: 0xeef0f4, gold: 0xe8d8a0, dragon: 0x3a2a26, demon: 0x4a1c1c, cloud: 0xf4f6fa, storm: 0x6a8a5a, glass: 0xece0c4, marsh: 0x46583a, crystal: 0x8a7ab8, void: 0x2e2038, diamond: 0xd6eef8 }).map(([k, v]) => [k, new T.Color(v)]));
   const TCOL = [COL.town, COL.town, COL.desert, COL.ice, COL.forest, COL.rock, COL.ash, COL.grave, COL.town,
     COL.town, COL.beast, COL.demon, COL.dragon, COL.giant, COL.dwarf, COL.angel, COL.elf], rc = new T.Color();
   function groundColor(x, z, y, c) {
@@ -217,6 +228,7 @@
       c.lerp(rc, o2);
     }
     const o3 = smooth(800, 850, r), fl = o3 > 0 ? frontierOf(x, z) : null; if (fl) c.lerp(COL[fl], o3);
+    const ik = smooth(ISLE.r + 10, ISLE.r - 20, hyp(x - ISLE.x, z - ISLE.z)); if (ik > 0) c.lerp(COL.diamond, ik);
     const rw = Math.max(ridgeW(x, z) * smooth(500, 462, r), ringW(x, z), realmRidge(x, z) * smooth(810, 780, r), edgeW(x, z), frontRidge(x, z)); if (rw > 0.2) c.lerp(COL.rock, Math.min(1, (rw - 0.2) * 2));
     if (y > 13) c.lerp(fl === 'void' || !fl && o2 > 0.5 && (realmOf(x, z) === 'dragon' || realmOf(x, z) === 'demon') ? COL.ash : COL.snow, smooth(13, 17, y));
     for (const k of Object.values(KEEPS)) { const f = smooth(k.R + 6, k.R - 2, hyp(x - k.x, z - k.z)); if (f > 0) c.lerp(COL.ash, f * 0.85); }
@@ -263,8 +275,10 @@
     const terrain = new T.Mesh(geo, new T.MeshLambertMaterial({ vertexColors: true, map: tex('grain', 300, 300) })); terrain.userData.flat = true; scene.add(terrain);
     // liquids: water everywhere, lava and ice wedges over the outer magma and tundra regions
     const flat = (g, m, y) => { g.rotateX(-P / 2); const o = new T.Mesh(g, m); o.position.y = y; o.userData.flat = true; scene.add(o); return o; };
-    TR.waveTex = tex('waves', 260, 260); // water: glossy, with drifting ripples that catch the sun
-    flat(new T.PlaneGeometry(2 * TR.HALF + 200, 2 * TR.HALF + 200), new T.MeshPhongMaterial({ color: 0x2c6e9e, specular: 0xcfe4ff, shininess: 70, transparent: true, opacity: 0.82, normalMap: TR.waveTex, normalScale: new T.Vector2(0.5, 0.5) }), TR.WATER);
+    TR.waveTex = tex('waves', 470, 470); // water: glossy, with drifting ripples that catch the sun
+    const SEA = 2 * TR.HALF + 2400; // the open sea runs on past the fog in every direction, over a dark floor
+    flat(new T.PlaneGeometry(SEA, SEA), M().mat(0x1e3a48), -30);
+    flat(new T.PlaneGeometry(SEA, SEA), new T.MeshPhongMaterial({ color: 0x2c6e9e, specular: 0xcfe4ff, shininess: 70, transparent: true, opacity: 0.82, normalMap: TR.waveTex, normalScale: new T.Vector2(0.5, 0.5) }), TR.WATER);
     TR.lavaMat = new T.MeshBasicMaterial({ color: 0xff5a1a });
     flat(new T.RingGeometry(172, 490, 48, 1, 3 * P / 4, P / 2), TR.lavaMat, TR.LAVA);
     flat(new T.RingGeometry(172, 490, 48, 1, P / 4, P / 2), M().mat(0xcfe8f2, { transparent: true, opacity: 0.92 }), TR.WATER + 0.08);
@@ -272,9 +286,9 @@
     const cloudMat = M().mat(0xf4f6fa, { transparent: true, opacity: 0.96 });
     REALMS.forEach((rl, i) => { const lq = REALM_LIQ[rl]; if (lq) flat(new T.RingGeometry(490, 800, 24, 1, -(i * P / 4) - P / 8, P / 4), lq === 'lava' ? TR.lavaMat : cloudMat, TR.liquidY(lq)); });
     const iceMat = M().mat(0xcfe8f2, { transparent: true, opacity: 0.92 }), voidMat = new T.MeshBasicMaterial({ color: 0x7a2aef }); // the void pits glow and burn like lava
-    FRONTIER.forEach((fl, k) => { const lq = FRONT_LIQ[fl]; if (lq) flat(new T.RingGeometry(800, 1260, 30, 1, -(k * P * 2 / 5) - P / 5, P * 2 / 5), lq === 'lava' ? voidMat : iceMat, TR.liquidY(lq)); });
+    FRONTIER.forEach((fl, k) => { const lq = FRONT_LIQ[fl]; if (lq) flat(new T.RingGeometry(800, 1150, 30, 1, -(k * P * 2 / 5) - P / 5, P * 2 / 5), lq === 'lava' ? voidMat : iceMat, TR.liquidY(lq)); });
     const crater = flat(new T.CircleGeometry(9, 20), TR.lavaMat, TR.height(VOLCANO.x, VOLCANO.z) + 0.4); crater.position.x = VOLCANO.x; crater.position.z = VOLCANO.z;
-    scenery(scene, q); towns(scene); realmCastles(scene); docks(scene); lairMarks(scene); barriers(scene); dungeonGate(scene); dungeonHall(scene);
+    scenery(scene, q); towns(scene); realmCastles(scene); docks(scene); lairMarks(scene); barriers(scene); dungeonGate(scene); dungeonHall(scene); diamondIsle(scene);
     TR.TOWERS.forEach(tw => { tower(scene, tw.x, tw.z, TR.height(tw.x, tw.z), 2.6, 14, 0x9a948a, 0x8a2a1a); flag(scene, tw.x, TR.height(tw.x, tw.z) + 19.5, tw.z); });
     return { terrain, chests: chests(scene) };
   };
@@ -314,10 +328,9 @@
   };
   function scenery(scene, q) {
     const R = rng(7), S = { pine: [], round: [], snowpine: [], dead: [], cactus: [], rock: [], icecrys: [], firecrys: [], grave: [],
-      elftree: [], shroom: [], hay: [], windmill: [], acacia: [], tallgrass: [], totem: [], giantpine: [], boulder: [], bluecrys: [], mine: [], pillar: [], cloudpuff: [], goldorb: [], bone: [], spike: [], portal: [], tuft: [] };
+      elftree: [], shroom: [], hay: [], windmill: [], acacia: [], tallgrass: [], totem: [], giantpine: [], boulder: [], bluecrys: [], mine: [], pillar: [], cloudpuff: [], goldorb: [], bone: [], spike: [], portal: [], tuft: [], diamond: [] };
     for (let i = 0; i < 106000 * q; i++) { // same density as before over the bigger world
       const x = (R() - 0.5) * 2360, z = (R() - 0.5) * 2360, roll = R(), s = 0.7 + R() * 0.8, rot = R() * 6.28;
-      if (hyp(x, z) > 1175) continue;
       const b = TR.biomeAt(x, z);
       if (b === 'town' || b === 'water' || TR.townAt(x, z, 6) || TR.keepAt(x, z, 4)) continue;
       const y = TR.height(x, z);
@@ -342,6 +355,7 @@
       else if (b === 'glass') roll < 0.05 ? put('icecrys') : roll < 0.09 ? put('rock') : roll < 0.105 && put('cactus');
       else if (b === 'marsh') roll < 0.12 ? put('dead') : roll < 0.2 ? put('shroom') : roll < 0.42 ? put('tallgrass') : roll < 0.47 && put('round');
       else if (b === 'crystal') roll < 0.1 ? put('bluecrys') : roll < 0.2 ? put('elftree') : roll < 0.26 && put('icecrys');
+      else if (b === 'diamond') roll < 0.07 ? put('diamond') : roll < 0.12 ? put('icecrys') : roll < 0.15 ? put('bluecrys') : roll < 0.17 && put('rock');
       else if (b === 'void') roll < 0.1 ? put('spike') : roll < 0.14 ? put('firecrys') : roll < 0.143 ? put('portal') : roll < 0.18 && put('rock');
     }
     const mat = M().mat, lam = (c, e) => mat(c, Object.assign({ flatShading: true }, e));
@@ -414,11 +428,13 @@
     const rockCol = { storm: new T.Color(0x6a6a70), glass: new T.Color(0xd8c8a0), marsh: new T.Color(0x4a5040), crystal: new T.Color(0x9a8ac8), void: new T.Color(0x2a1a2a), magma: new T.Color(0x2a2224), desert: new T.Color(0xb08a5a), ice: new T.Color(0xb8c8d0), dwarf: new T.Color(0x7a6a5a), dragon: new T.Color(0x2a2020) }, grey = new T.Color(0x8a8a84);
     inst(scene, new T.DodecahedronGeometry(1, 1), lam(0xffffff, { map: tex('grain', 1, 1) }), S.rock, (d, t) => { d.position.set(t.x, t.y, t.z); d.scale.set(0.6 + t.s, 0.5 + t.s * 0.5, 0.6 + t.s * 0.9); d.rotation.set(t.rot, t.rot * 2, 0); }, t => rockCol[t.b] || grey);
     inst(scene, new T.OctahedronGeometry(0.9), mat(0x9fe0ff, { transparent: true, opacity: 0.85 }), S.icecrys, (d, t) => { d.position.set(t.x, t.y + t.s, t.z); d.scale.set(t.s, t.s * 2, t.s); d.rotation.y = t.rot; });
+    inst(scene, new T.OctahedronGeometry(1), mat(0xeefcff, { emissive: 0x2a5868, transparent: true, opacity: 0.88 }), S.diamond, (d, t) => { const k = t.s * 1.7; d.position.set(t.x, t.y + k * 1.2, t.z); d.scale.set(k, k * 1.5, k); d.rotation.set(0.12, t.rot, 0.08); });
     inst(scene, new T.OctahedronGeometry(0.8), new T.MeshBasicMaterial({ color: 0xff7a2a }), S.firecrys, (d, t) => { d.position.set(t.x, t.y + t.s * 0.8, t.z); d.scale.set(t.s, t.s * 1.8, t.s); d.rotation.set(0.2, t.rot, 0.1); });
     // solid scenery
     for (const t of S.pine.concat(S.round, S.snowpine, S.dead, S.cactus)) TR.addCol(t.x, t.z, 0.45 * t.s);
     for (const t of S.rock) TR.addCol(t.x, t.z, 0.6 + t.s * 0.75);
     for (const t of S.icecrys.concat(S.firecrys, S.grave, S.bluecrys, S.totem, S.spike)) TR.addCol(t.x, t.z, 0.5 * t.s);
+    for (const t of S.diamond) TR.addCol(t.x, t.z, 1.2 * t.s);
     for (const t of S.elftree.concat(S.acacia, S.pillar)) TR.addCol(t.x, t.z, 0.6 * t.s);
     for (const t of S.giantpine) TR.addCol(t.x, t.z, 1.2 * t.s);
     for (const t of S.boulder) TR.addCol(t.x, t.z, 2.2 + t.s * 1.8);
@@ -755,7 +771,14 @@
     const radial = (a, r0, r1, need) => wall(new T.PlaneGeometry(r1 - r0, 80), Math.cos(a) * (r0 + r1) / 2, Math.sin(a) * (r0 + r1) / 2, -a, need);
     arc(200, 0, P * 2, AREA_LV.inner);
     REALMS.forEach((rl, i) => { const a = i * P / 4, nb = REALMS[(i + 1) % 8]; arc(492, a - P / 8, a + P / 8, AREA_LV[rl]); if (AREA_LV[nb] !== AREA_LV[rl]) radial(a + P / 8, 492, 800, Math.max(AREA_LV[rl], AREA_LV[nb])); });
-    FRONTIER.forEach((fl, k) => { const a = k * P * 2 / 5, nb = FRONTIER[(k + 1) % 5]; arc(800, a - P / 5, a + P / 5, AREA_LV[fl]); radial(a + P / 5, 800, 1215, Math.max(AREA_LV[fl], AREA_LV[nb])); });
+    FRONTIER.forEach((fl, k) => { const a = k * P * 2 / 5, nb = FRONTIER[(k + 1) % 5]; arc(800, a - P / 5, a + P / 5, AREA_LV[fl]); const b = a + P / 5; radial(b, 800, Math.min(1400, (TR.HALF - 15) / Math.max(Math.abs(Math.cos(b)), Math.abs(Math.sin(b)))), Math.max(AREA_LV[fl], AREA_LV[nb])); });
+    wall(new T.CylinderGeometry(ISLE.r + 50, ISLE.r + 50, 80, 72, 1, true), ISLE.x, ISLE.z, 0, AREA_LV.diamond);
+  }
+  // the Diamond Island's landmark: a great diamond standing on its point on the hilltop, seen from the far shore
+  function diamondIsle(scene) {
+    const { mat, add } = M(), y = TR.height(ISLE.x, ISLE.z);
+    add(scene, new T.Mesh(new T.OctahedronGeometry(7), mat(0xeafcff, { emissive: 0x3a7a8a, flatShading: true, transparent: true, opacity: 0.9 })), ISLE.x, y + 10, ISLE.z).scale.y = 1.5;
+    TR.addCol(ISLE.x, ISLE.z, 5.5);
   }
   // ---------- the dungeon: a gate near the village, and the hall it leads to ----------
   function dungeonGate(scene) {
@@ -769,7 +792,8 @@
     TR.PLACES.push({ kind: 'dungeon', x: k.x, z: k.z });
   }
   // a long vaulted hall of dark stone with pillars and torches; the way out at the south end, the way down at the north
-  function dungeonHall(scene) {
+  function dungeonHall(world) {
+    const scene = DUN.hall = new T.Group(); world.add(scene); // shown only while the hero is inside (world.js)
     const { mat, box, add } = M(), D = DUN, stone = mat(0x4a4450, { map: tex('stone', 6, 2) }), torch = new T.MeshBasicMaterial({ color: 0xff9a3a });
     add(scene, box(D.w + 4, 2, D.d + 4, mat(0x3a3640, { map: tex('stone', 10, 14) })), D.x, D.y - 1, D.z);
     add(scene, box(D.w + 4, 1.5, D.d + 4, mat(0x2a2630)), D.x, D.y + 16.75, D.z);
@@ -781,7 +805,7 @@
       add(scene, new T.Mesh(new T.CylinderGeometry(1.2, 1.5, 16, 12), stone), x, D.y + 8, D.z + z); TR.addCol(x, D.z + z, 1.7);
       add(scene, new T.Mesh(new T.SphereGeometry(0.42, 10, 8), torch), x - s * 1.6, D.y + 5, D.z + z);
     });
-    [-1, 1].forEach(s => { const l = new T.PointLight(0xff9a4a, 1.3, 70); l.position.set(D.x, D.y + 11, D.z + s * D.d / 4); scene.add(l); });
+    [-1, 1].forEach(s => { const l = new T.PointLight(0xff9a4a, 1.3, 70); l.position.set(D.x, D.y + 11, D.z + s * D.d / 4); world.add(l); }); // lights stay on, so materials never recompile
     const portal = (z, col) => { const g = new T.Group(); g.position.set(D.x, D.y, z); scene.add(g); add(g, new T.Mesh(new T.TorusGeometry(2.7, 0.32, 8, 32), mat(0x6a6070)), 0, 3.1); add(g, new T.Mesh(new T.CircleGeometry(2.5, 32), new T.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.65, side: T.DoubleSide })), 0, 3.1); return g; };
     portal(D.z + D.d / 2 - 2.5, 0x6fb8ff); TR.PLACES.push({ kind: 'dexit', x: D.x, z: D.z + D.d / 2 - 3 });
     D.next = portal(D.z - D.d / 2 + 2.5, 0xb06cff); D.next.visible = false; TR.PLACES.push({ kind: 'dnext', x: D.x, z: D.z - D.d / 2 + 3 });
